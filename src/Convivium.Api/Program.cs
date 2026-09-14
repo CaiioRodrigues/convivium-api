@@ -21,7 +21,10 @@ builder.Services.AddControllers()
         // Enums viajam como texto: o front do convivium-web le "Manager",
         // nao 5, e um valor novo no meio do enum nao quebra o cliente.
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+
+        // Campos nulos sao serializados, nao omitidos. Omitir deixa o contrato
+        // instavel: uma serie de grafico perderia os meses sem dado, e o
+        // cliente teria que distinguir "ausente" de "sem valor".
     });
 
 builder.Services.AddApplication();
