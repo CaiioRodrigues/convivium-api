@@ -1,6 +1,7 @@
 namespace Convivium.Application;
 
 using Convivium.Application.Auth;
+using Convivium.Application.Billing;
 using Convivium.Application.Expenses;
 using Convivium.Application.Finance;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,6 +11,7 @@ public static class DependencyInjection
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddScoped<AuthService>();
+        services.AddScoped<BillingService>();
         services.AddScoped<CashBookService>();
         services.AddScoped<ExpenseService>();
         services.AddScoped<SupplierService>();
