@@ -41,6 +41,17 @@ builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 var jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
     ?? throw new InvalidOperationException("Seção Jwt ausente na configuração.");
 
+// Falha no boot, e nao na primeira tentativa de login: subir uma API que
+// aceita qualquer token e pior do que nao subir. A chave nunca deve estar no
+// appsettings versionado — use variavel de ambiente ou gerenciador de segredos.
+if (Encoding.UTF8.GetByteCount(jwt.SigningKey) < 32)
+{
+    throw new InvalidOperationException(
+        "Jwt:SigningKey não configurada ou curta demais. " +
+        "Defina pelo menos 32 bytes em Jwt__SigningKey (variável de ambiente) " +
+        "ou em appsettings.Development.json para rodar localmente.");
+}
+
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

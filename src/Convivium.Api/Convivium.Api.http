@@ -1,6 +1,191 @@
-@Convivium.Api_HostAddress = http://localhost:5040
+@host = http://localhost:5080
 
-GET {{Convivium.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+### Login (síndico do condomínio de demonstração)
+# @name login
+POST {{host}}/api/auth/login
+Content-Type: application/json
 
-###
+{
+  "email": "sindico@convivium.local",
+  "password": "Convivium@123"
+}
+
+@token = {{login.response.body.accessToken}}
+@refresh = {{login.response.body.refreshToken}}
+
+### Quem sou eu
+GET {{host}}/api/auth/me
+Authorization: Bearer {{token}}
+
+### Renovar a sessão
+POST {{host}}/api/auth/refresh
+Content-Type: application/json
+
+{ "refreshToken": "{{refresh}}" }
+
+###############################################
+# Painel e gráficos
+###############################################
+
+### Visão geral
+GET {{host}}/api/painel
+Authorization: Bearer {{token}}
+
+### Gasto por categoria (últimos 6 meses)
+GET {{host}}/api/painel/gastos-por-categoria?months=6
+Authorization: Bearer {{token}}
+
+### Evolução mensal de receita, despesa e saldo
+GET {{host}}/api/painel/evolucao-mensal?months=12
+Authorization: Bearer {{token}}
+
+### Maiores fornecedores
+GET {{host}}/api/painel/fornecedores?months=6&take=10
+Authorization: Bearer {{token}}
+
+### Consumo de energia (das faturas lidas em PDF)
+GET {{host}}/api/painel/consumo/Cemig?months=12
+Authorization: Bearer {{token}}
+
+###############################################
+# Caixa
+###############################################
+
+### Posição de caixa
+GET {{host}}/api/caixa/posicao
+Authorization: Bearer {{token}}
+
+### Extrato de uma conta
+GET {{host}}/api/caixa/contas/{{contaId}}/extrato?from=2026-08-01&to=2026-08-31
+Authorization: Bearer {{token}}
+
+### Plano de contas
+GET {{host}}/api/caixa/plano-de-contas
+Authorization: Bearer {{token}}
+
+### Lançamento manual
+POST {{host}}/api/caixa/lancamentos
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "bankAccountId": "{{contaId}}",
+  "ledgerAccountId": "{{contaContabilId}}",
+  "direction": "In",
+  "amount": 450.00,
+  "date": "2026-09-14",
+  "description": "Aluguel do salão de festas"
+}
+
+###############################################
+# Despesas
+###############################################
+
+### Listar despesas em aberto
+GET {{host}}/api/despesas?Status=Pending
+Authorization: Bearer {{token}}
+
+### Totais
+GET {{host}}/api/despesas/totais
+Authorization: Bearer {{token}}
+
+### Dar baixa numa despesa
+POST {{host}}/api/despesas/{{despesaId}}/pagar
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "bankAccountId": "{{contaId}}" }
+
+###############################################
+# Rateio e cobranças
+###############################################
+
+### Prévia do rateio (não grava nada)
+GET {{host}}/api/cobrancas/previa?competence=09/2026
+Authorization: Bearer {{token}}
+
+### Abrir o ciclo da competência
+POST {{host}}/api/cobrancas/ciclos
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "competence": "09/2026" }
+
+### Fechar o rateio (gera uma cobrança por unidade)
+POST {{host}}/api/cobrancas/ciclos/{{cicloId}}/fechar
+Authorization: Bearer {{token}}
+
+### Publicar (gera o PIX de cada cobrança)
+POST {{host}}/api/cobrancas/ciclos/{{cicloId}}/publicar
+Authorization: Bearer {{token}}
+
+### Enviar os avisos por e-mail
+POST {{host}}/api/notificacoes/ciclos/{{cicloId}}/enviar
+Authorization: Bearer {{token}}
+
+### Inadimplência
+GET {{host}}/api/cobrancas/inadimplencia
+Authorization: Bearer {{token}}
+
+### Boleto em PDF
+GET {{host}}/api/cobrancas/{{cobrancaId}}/pdf
+Authorization: Bearer {{token}}
+
+### Registrar recebimento
+POST {{host}}/api/cobrancas/{{cobrancaId}}/receber
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "amount": 1153.15,
+  "bankAccountId": "{{contaId}}",
+  "method": "Pix"
+}
+
+###############################################
+# Acesso do morador
+###############################################
+
+### Minhas cobranças (login de morador)
+GET {{host}}/api/minhas-cobrancas
+Authorization: Bearer {{tokenMorador}}
+
+### Boleto pelo link público (sem login)
+GET {{host}}/api/boleto/{{tokenPublico}}
+
+### Boleto em PDF pelo link público
+GET {{host}}/api/boleto/{{tokenPublico}}/pdf
+
+###############################################
+# Faturas de concessionária em PDF
+###############################################
+
+### Importar a conta de luz
+POST {{host}}/api/faturas/importar?provider=Cemig
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=fronteira
+
+--fronteira
+Content-Disposition: form-data; name="file"; filename="cemig.pdf"
+Content-Type: application/pdf
+
+< ./cemig.pdf
+--fronteira--
+
+### Ver o texto bruto extraído (para depurar a leitura)
+GET {{host}}/api/faturas/{{faturaId}}/texto
+Authorization: Bearer {{token}}
+
+### Corrigir a leitura manualmente
+PUT {{host}}/api/faturas/{{faturaId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "amount": 2384.76, "dueDate": "2026-09-15", "referenceMonth": "08/2026" }
+
+### Gerar a despesa a partir da fatura
+POST {{host}}/api/faturas/{{faturaId}}/gerar-despesa
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
