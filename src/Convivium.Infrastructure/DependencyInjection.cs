@@ -4,9 +4,11 @@ using Convivium.Application.Abstractions;
 using Convivium.Application.Auth;
 using Convivium.Application.Billing;
 using Convivium.Infrastructure.Auth;
+using Convivium.Infrastructure.Notifications;
 using Convivium.Infrastructure.Documents;
 using Convivium.Infrastructure.Persistence;
 using Convivium.Infrastructure.Persistence.Seeding;
+using Convivium.Application.Notifications;
 using Convivium.Application.Utilities;
 using Convivium.Infrastructure.Services;
 using Convivium.Infrastructure.Utilities;
@@ -34,6 +36,7 @@ public static class DependencyInjection
 
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<ConviviumOptions>(configuration.GetSection(ConviviumOptions.SectionName));
+        services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
 
         // QuestPDF exige a licenca declarada antes de gerar o primeiro documento.
         // Community e gratuita para empresas com receita anual abaixo de US$ 1 milhao.
@@ -45,6 +48,10 @@ public static class DependencyInjection
 
         services.AddSingleton<IChargeDocumentRenderer, ChargePdfRenderer>();
         services.AddSingleton<IPdfTextExtractor, PdfPigTextExtractor>();
+        services.AddSingleton<IEmailSender, SmtpEmailSender>();
+        services.AddSingleton<EmailComposer>();
+
+        services.AddHostedService<EmailDispatcher>();
 
         // A ordem importa: leitores especificos primeiro, o generico por ultimo,
         // porque o generico aceita qualquer texto e engoliria os demais.
