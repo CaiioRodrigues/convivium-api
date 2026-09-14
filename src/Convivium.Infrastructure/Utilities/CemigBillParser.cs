@@ -42,19 +42,19 @@ public sealed partial class CemigBillParser : IUtilityBillParser
         decimal? amount = FindAmount(normalized);
         if (amount is null)
         {
-            warnings.Add("Nao foi possivel identificar o valor total da fatura.");
+            warnings.Add("Não foi possível identificar o valor total da fatura.");
         }
 
         DateOnly? dueDate = FindDueDate(normalized);
         if (dueDate is null)
         {
-            warnings.Add("Nao foi possivel identificar a data de vencimento.");
+            warnings.Add("Não foi possível identificar a data de vencimento.");
         }
 
         Competence? reference = FindReference(normalized);
         if (reference is null)
         {
-            warnings.Add("Nao foi possivel identificar o mes de referencia.");
+            warnings.Add("Não foi possível identificar o mês de referência.");
         }
         else if (dueDate is { } due && reference.Value > Competence.From(due))
         {
@@ -67,7 +67,7 @@ public sealed partial class CemigBillParser : IUtilityBillParser
         decimal? consumption = FindConsumption(normalized, warnings);
         if (consumption is null)
         {
-            warnings.Add("Nao foi possivel identificar o consumo em kWh.");
+            warnings.Add("Não foi possível identificar o consumo em kWh.");
         }
 
         return new UtilityBillReading

@@ -153,7 +153,7 @@ public sealed class DashboardService(IApplicationDbContext db, IClock clock)
             return [];
         }
 
-        // Precisa dos nomes dos grupos para rotular "5.2" como "Concessionarias".
+        // Precisa dos nomes dos grupos para rotular "5.2" como "Concessionárias".
         var groupNames = await db.LedgerAccounts
             .AsNoTracking()
             .Where(a => a.Nature == AccountNature.Expense)

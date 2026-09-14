@@ -425,7 +425,7 @@ public sealed class BillingService(
             Amount = request.Amount,
             Date = paidOn,
             Competence = charge.Competence,
-            Description = $"Recebimento de cobranca - {charge.Competence}",
+            Description = $"Recebimento de cobrança - {charge.Competence}",
             PaymentId = payment.Id,
             CreatedByPersonId = registeredByPersonId,
         };

@@ -330,10 +330,10 @@ public sealed class UtilityBillImportService(
     {
         string what = bill.Provider switch
         {
-            UtilityProvider.Cemig => "Energia eletrica",
-            UtilityProvider.Copasa => "Agua e esgoto",
-            UtilityProvider.Gasmig => "Gas canalizado",
-            _ => "Fatura de concessionaria",
+            UtilityProvider.Cemig => "Energia elétrica",
+            UtilityProvider.Copasa => "Água e esgoto",
+            UtilityProvider.Gasmig => "Gás canalizado",
+            _ => "Fatura de concessionária",
         };
 
         return bill.ReferenceMonth is { } reference ? $"{what} - {reference}" : what;
@@ -355,7 +355,7 @@ public sealed class UtilityBillImportService(
 
         if (bill.InstallationCode is { Length: > 0 } installation)
         {
-            parts.Add($"Instalacao: {installation}.");
+            parts.Add($"Instalação: {installation}.");
         }
 
         return string.Join(' ', parts);

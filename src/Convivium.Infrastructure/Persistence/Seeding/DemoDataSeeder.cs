@@ -1,5 +1,7 @@
 namespace Convivium.Infrastructure.Persistence.Seeding;
 
+using System.Globalization;
+using System.Text;
 using Convivium.Application.Abstractions;
 using Convivium.Domain.Billing;
 using Convivium.Domain.Common;
@@ -66,7 +68,7 @@ public sealed class DemoDataSeeder(
     private static Condominium CreateCondominium() => new()
     {
         Name = "Residencial Convivium",
-        LegalName = "Condominio do Edificio Residencial Convivium",
+        LegalName = "Condomínio do Edifício Residencial Convivium",
         Cnpj = "12345678000195",
         Address = new Address
         {
@@ -185,8 +187,8 @@ public sealed class DemoDataSeeder(
         var staff = new (string Name, string Email, MembershipRole Role)[]
         {
             ("Helena Prado", "sindico@convivium.local", MembershipRole.Manager),
-            ("Rogerio Tavares", "conselho@convivium.local", MembershipRole.CouncilMember),
-            ("Marcos Vinicius Alves", "zelador@convivium.local", MembershipRole.Caretaker),
+            ("Rogério Tavares", "conselho@convivium.local", MembershipRole.CouncilMember),
+            ("Marcos Vinícius Alves", "zelador@convivium.local", MembershipRole.Caretaker),
         };
 
         foreach ((string name, string email, MembershipRole role) in staff)
@@ -205,15 +207,15 @@ public sealed class DemoDataSeeder(
         string[] firstNames =
         [
             "Ana", "Bruno", "Carla", "Diego", "Eduarda", "Felipe", "Gabriela", "Henrique",
-            "Isabela", "Joao", "Larissa", "Mateus", "Natalia", "Otavio", "Patricia", "Rafael",
-            "Sabrina", "Thiago", "Vanessa", "Wagner", "Yasmin", "Andre", "Beatriz", "Caio",
+            "Isabela", "João", "Larissa", "Mateus", "Natália", "Otávio", "Patrícia", "Rafael",
+            "Sabrina", "Thiago", "Vanessa", "Wagner", "Yasmin", "André", "Beatriz", "Caio",
         ];
 
         string[] lastNames =
         [
             "Almeida", "Barbosa", "Carvalho", "Dias", "Esteves", "Ferreira", "Gomes", "Henriques",
             "Iglesias", "Justino", "Kunz", "Lima", "Moreira", "Nunes", "Oliveira", "Pereira",
-            "Queiroz", "Ribeiro", "Santos", "Teixeira", "Uchoa", "Vieira", "Werneck", "Xavier",
+            "Queiroz", "Ribeiro", "Santos", "Teixeira", "Uchôa", "Vieira", "Werneck", "Xavier",
         ];
 
         int created = staff.Length;
@@ -222,7 +224,7 @@ public sealed class DemoDataSeeder(
         {
             Unit unit = units[i];
             string name = $"{firstNames[i % firstNames.Length]} {lastNames[i % lastNames.Length]}";
-            string slug = name.ToLowerInvariant().Replace(' ', '.');
+            string slug = ParaSlugDeEmail(name);
 
             // O primeiro morador tem senha para servir de login de teste do papel Resident.
             bool canSignIn = i == 0;
@@ -261,12 +263,25 @@ public sealed class DemoDataSeeder(
         return created;
     }
 
+    /// <summary>
+    /// "João Henriques" -> "joao.henriques". Remove a acentuação porque um
+    /// e-mail com "ã" e "ç" nem sempre e aceito pelos servidores de destino.
+    /// </summary>
+    private static string ParaSlugDeEmail(string name)
+    {
+        string semAcento = string.Concat(
+            name.Normalize(NormalizationForm.FormD)
+                .Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark));
+
+        return semAcento.Normalize(NormalizationForm.FormC).ToLowerInvariant().Replace(' ', '.');
+    }
+
     private static List<Supplier> CreateSuppliers(Guid condominiumId) =>
     [
-        new() { CondominiumId = condominiumId, Name = "CEMIG Distribuicao S.A.", Document = "06981180000116" },
+        new() { CondominiumId = condominiumId, Name = "CEMIG Distribuição S.A.", Document = "06981180000116" },
         new() { CondominiumId = condominiumId, Name = "COPASA MG", Document = "17281106000103" },
         new() { CondominiumId = condominiumId, Name = "Atlas Elevadores Ltda", Document = "11222333000144" },
-        new() { CondominiumId = condominiumId, Name = "Brilho Servicos de Limpeza ME", Document = "22333444000155" },
+        new() { CondominiumId = condominiumId, Name = "Brilho Serviços de Limpeza ME", Document = "22333444000155" },
         new() { CondominiumId = condominiumId, Name = "Predial Administradora", Document = "33444555000166" },
         new() { CondominiumId = condominiumId, Name = "Verde Vivo Jardinagem", Document = "44555666000177" },
         new() { CondominiumId = condominiumId, Name = "Seguradora Horizonte", Document = "55666777000188" },
@@ -296,15 +311,15 @@ public sealed class DemoDataSeeder(
         {
             ("5.1.01", "Folha de pagamento - porteiros e zelador", null, 9_800m),
             ("5.1.02", "INSS e FGTS sobre a folha", null, 3_430m),
-            ("5.1.03", "Vale transporte e vale alimentacao", null, 1_260m),
-            ("5.2.01", "Energia eletrica das areas comuns", cemig, 2_380m),
-            ("5.2.02", "Agua e esgoto", copasa, 2_010m),
-            ("5.3.01", "Manutencao preventiva dos elevadores", elevator, 890m),
+            ("5.1.03", "Vale transporte e vale alimentação", null, 1_260m),
+            ("5.2.01", "Energia elétrica das áreas comuns", cemig, 2_380m),
+            ("5.2.02", "Água e esgoto", copasa, 2_010m),
+            ("5.3.01", "Manutenção preventiva dos elevadores", elevator, 890m),
             ("5.3.03", "Jardinagem quinzenal", garden, 350m),
-            ("5.4.02", "Limpeza e conservacao", cleaning, 2_400m),
-            ("5.4.03", "Taxa de administracao", admin, 780m),
+            ("5.4.02", "Limpeza e conservação", cleaning, 2_400m),
+            ("5.4.03", "Taxa de administração", admin, 780m),
             ("5.5", "Material de limpeza e consumo", null, 420m),
-            ("5.6.01", "Seguro predial obrigatorio", insurer, 312m),
+            ("5.6.01", "Seguro predial obrigatório", insurer, 312m),
         };
 
         Competence current = Competence.From(clock.Today);
@@ -384,7 +399,7 @@ public sealed class DemoDataSeeder(
                 Amount = condoFee,
                 Date = receiptDate,
                 Competence = competence,
-                Description = $"Arrecadacao de taxa condominial - {competence}",
+                Description = $"Arrecadação de taxa condominial - {competence}",
                 ReconciledAt = clock.Now,
             });
 

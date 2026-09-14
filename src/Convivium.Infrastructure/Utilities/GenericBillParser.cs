@@ -40,17 +40,17 @@ public sealed class GenericBillParser : IUtilityBillParser
 
         var warnings = new List<string>
         {
-            "Layout de fatura nao reconhecido. Confira todos os campos antes de lancar a despesa.",
+            "Layout de fatura não reconhecido. Confira todos os campos antes de lançar a despesa.",
         };
 
         if (amount is null)
         {
-            warnings.Add("Valor total nao identificado.");
+            warnings.Add("Valor total não identificado.");
         }
 
         if (dueDate is null)
         {
-            warnings.Add("Data de vencimento nao identificada.");
+            warnings.Add("Data de vencimento não identificada.");
         }
 
         return new UtilityBillReading
