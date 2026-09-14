@@ -36,7 +36,7 @@ builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 // --- Autenticacao ---
 
 var jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
-    ?? throw new InvalidOperationException("Secao Jwt ausente na configuracao.");
+    ?? throw new InvalidOperationException("Seção Jwt ausente na configuração.");
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -92,7 +92,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "Convivium API",
         Version = "v1",
-        Description = "Gestao de condominios: caixa, rateio, cobrancas e prestacao de contas.",
+        Description = "Gestão de condomínios: caixa, rateio, cobranças e prestação de contas.",
     });
 
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme

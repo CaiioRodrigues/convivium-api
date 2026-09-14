@@ -24,16 +24,16 @@ public sealed class ApiExceptionHandler(
     {
         (int status, string title) = exception switch
         {
-            DomainException => (StatusCodes.Status422UnprocessableEntity, "Operacao nao permitida"),
-            AuthenticationFailedException => (StatusCodes.Status401Unauthorized, "Nao autenticado"),
-            KeyNotFoundException => (StatusCodes.Status404NotFound, "Recurso nao encontrado"),
-            ArgumentException => (StatusCodes.Status400BadRequest, "Requisicao invalida"),
+            DomainException => (StatusCodes.Status422UnprocessableEntity, "Operação não permitida"),
+            AuthenticationFailedException => (StatusCodes.Status401Unauthorized, "Não autenticado"),
+            KeyNotFoundException => (StatusCodes.Status404NotFound, "Recurso não encontrado"),
+            ArgumentException => (StatusCodes.Status400BadRequest, "Requisição inválida"),
             _ => (StatusCodes.Status500InternalServerError, "Erro interno"),
         };
 
         if (status == StatusCodes.Status500InternalServerError)
         {
-            logger.LogError(exception, "Erro nao tratado em {Path}", httpContext.Request.Path);
+            logger.LogError(exception, "Erro não tratado em {Path}", httpContext.Request.Path);
         }
 
         httpContext.Response.StatusCode = status;
@@ -49,7 +49,7 @@ public sealed class ApiExceptionHandler(
                 // Detalhe de erro interno nao vaza para o cliente: pode conter
                 // nome de tabela, caminho de arquivo ou string de conexao.
                 Detail = status == StatusCodes.Status500InternalServerError
-                    ? "Nao foi possivel concluir a operacao."
+                    ? "Não foi possível concluir a operação."
                     : exception.Message,
             },
         });

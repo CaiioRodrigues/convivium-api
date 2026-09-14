@@ -11,6 +11,7 @@ using Convivium.Domain.Finance;
 using Convivium.Domain.Payments;
 using Convivium.Domain.People;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 /// <summary>
 /// O rateio mensal e as cobrancas por unidade.
@@ -22,7 +23,10 @@ using Microsoft.EntityFrameworkCore;
 /// despesas da competencia nao muda mais o que foi cobrado — que e
 /// exatamente o ponto: o morador precisa poder confiar no boleto que recebeu.
 /// </remarks>
-public sealed class BillingService(IApplicationDbContext db, IClock clock)
+public sealed class BillingService(
+    IApplicationDbContext db,
+    IClock clock,
+    IOptions<ConviviumOptions> options)
 {
     /// <summary>
     /// Simula o rateio da competencia sem gravar nada, para conferencia do
@@ -58,13 +62,13 @@ public sealed class BillingService(IApplicationDbContext db, IClock clock)
         if (stillPending > 0)
         {
             warnings.Add(
-                $"{stillPending} despesa(s) da competencia ainda estao em aberto. " +
-                "O valor pode mudar ate o fechamento.");
+                $"{stillPending} despesa(s) da competência ainda estão em aberto. " +
+                "O valor pode mudar até o fechamento.");
         }
 
         if (apportionableTotal <= 0)
         {
-            warnings.Add("Nenhuma despesa rateavel lancada nesta competencia.");
+            warnings.Add("Nenhuma despesa rateável lançada nesta competência.");
         }
 
         var breakdown = expenses
@@ -90,7 +94,7 @@ public sealed class BillingService(IApplicationDbContext db, IClock clock)
         if (effectiveMethod == ApportionmentMethod.IdealFraction && Math.Abs(fractionSum - 1m) > 0.0001m)
         {
             warnings.Add(
-                $"A soma das fracoes ideais e {fractionSum:N6} em vez de 1. " +
+                $"A soma das frações ideais é {fractionSum:N6} em vez de 1. " +
                 "Corrija o cadastro das unidades para o rateio ficar correto.");
         }
 
@@ -127,7 +131,7 @@ public sealed class BillingService(IApplicationDbContext db, IClock clock)
             .Where(c => c.Id == id)
             .Select(ToCycleDto())
             .FirstOrDefaultAsync(cancellationToken)
-            ?? throw new KeyNotFoundException("Ciclo de cobranca nao encontrado.");
+            ?? throw new KeyNotFoundException("Ciclo de cobrança não encontrado.");
 
     /// <summary>Abre a competencia em rascunho, pronta para receber despesas.</summary>
     public async Task<BillingCycleDto> OpenCycleAsync(
@@ -140,7 +144,7 @@ public sealed class BillingService(IApplicationDbContext db, IClock clock)
         Condominium condominium = await LoadCondominiumAsync(cancellationToken);
 
         bool exists = await db.BillingCycles.AnyAsync(c => c.Competence == competence, cancellationToken);
-        DomainException.ThrowIf(exists, $"Ja existe um ciclo para a competencia {competence}.");
+        DomainException.ThrowIf(exists, $"Já existe um ciclo para a competência {competence}.");
 
         var cycle = new BillingCycle
         {
@@ -167,11 +171,11 @@ public sealed class BillingService(IApplicationDbContext db, IClock clock)
     {
         BillingCycle cycle = await db.BillingCycles
             .FirstOrDefaultAsync(c => c.Id == cycleId, cancellationToken)
-            ?? throw new KeyNotFoundException("Ciclo de cobranca nao encontrado.");
+            ?? throw new KeyNotFoundException("Ciclo de cobrança não encontrado.");
 
         DomainException.ThrowIf(
             cycle.Status != BillingCycleStatus.Draft,
-            $"O ciclo de {cycle.Competence} ja foi fechado.");
+            $"O ciclo de {cycle.Competence} já foi fechado.");
 
         Condominium condominium = await LoadCondominiumAsync(cancellationToken);
 
@@ -182,8 +186,8 @@ public sealed class BillingService(IApplicationDbContext db, IClock clock)
 
         DomainException.ThrowIf(
             apportionableTotal <= 0,
-            $"Nao ha despesas rateaveis na competencia {cycle.Competence}. " +
-            "Lance as despesas do mes antes de fechar o rateio.");
+            $"Não há despesas rateáveis na competência {cycle.Competence}. " +
+            "Lance as despesas do mês antes de fechar o rateio.");
 
         var units = await LoadBillableUnitsAsync(cancellationToken);
         DomainException.ThrowIf(units.Count == 0, "Nenhuma unidade ativa para cobrar.");
@@ -257,11 +261,11 @@ public sealed class BillingService(IApplicationDbContext db, IClock clock)
     {
         BillingCycle cycle = await db.BillingCycles
             .FirstOrDefaultAsync(c => c.Id == cycleId, cancellationToken)
-            ?? throw new KeyNotFoundException("Ciclo de cobranca nao encontrado.");
+            ?? throw new KeyNotFoundException("Ciclo de cobrança não encontrado.");
 
         DomainException.ThrowIf(
             cycle.Status != BillingCycleStatus.Closed,
-            "So e possivel publicar um ciclo que ja foi fechado.");
+            "Só é possível publicar um ciclo que já foi fechado.");
 
         Condominium condominium = await LoadCondominiumAsync(cancellationToken);
 
@@ -313,7 +317,7 @@ public sealed class BillingService(IApplicationDbContext db, IClock clock)
     public async Task<ChargeDto> GetChargeAsync(Guid id, CancellationToken cancellationToken = default)
     {
         Charge charge = await LoadChargeGraph().FirstOrDefaultAsync(c => c.Id == id, cancellationToken)
-            ?? throw new KeyNotFoundException("Cobranca nao encontrada.");
+            ?? throw new KeyNotFoundException("Cobrança não encontrada.");
 
         return ToDto(charge, await LoadCondominiumAsync(cancellationToken));
     }
@@ -352,12 +356,12 @@ public sealed class BillingService(IApplicationDbContext db, IClock clock)
         string token,
         CancellationToken cancellationToken = default)
     {
-        DomainException.ThrowIf(string.IsNullOrWhiteSpace(token), "Link invalido.");
+        DomainException.ThrowIf(string.IsNullOrWhiteSpace(token), "Link inválido.");
 
         Charge charge = await LoadChargeGraph()
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(c => c.PublicToken == token, cancellationToken)
-            ?? throw new KeyNotFoundException("Cobranca nao encontrada ou link expirado.");
+            ?? throw new KeyNotFoundException("Cobrança não encontrada ou link expirado.");
 
         Condominium condominium = await db.Condominiums
             .AsNoTracking()
@@ -382,14 +386,14 @@ public sealed class BillingService(IApplicationDbContext db, IClock clock)
         Charge charge = await db.Charges
             .Include(c => c.Items)
             .FirstOrDefaultAsync(c => c.Id == chargeId, cancellationToken)
-            ?? throw new KeyNotFoundException("Cobranca nao encontrada.");
+            ?? throw new KeyNotFoundException("Cobrança não encontrada.");
 
-        DomainException.ThrowIf(charge.Status == ChargeStatus.Cancelled, "Cobranca cancelada.");
-        DomainException.ThrowIf(charge.Status == ChargeStatus.Paid, "Cobranca ja quitada.");
+        DomainException.ThrowIf(charge.Status == ChargeStatus.Cancelled, "Cobrança cancelada.");
+        DomainException.ThrowIf(charge.Status == ChargeStatus.Paid, "Cobrança já quitada.");
 
         bool accountExists = await db.BankAccounts
             .AnyAsync(a => a.Id == request.BankAccountId && a.IsActive, cancellationToken);
-        DomainException.ThrowIf(!accountExists, "Conta bancaria nao encontrada ou inativa.");
+        DomainException.ThrowIf(!accountExists, "Conta bancária não encontrada ou inativa.");
 
         DateOnly paidOn = request.PaidOn ?? clock.Today;
 
@@ -456,11 +460,11 @@ public sealed class BillingService(IApplicationDbContext db, IClock clock)
     {
         ArgumentNullException.ThrowIfNull(request);
         DomainException.ThrowIf(request.Amount <= 0, "O valor deve ser maior que zero.");
-        DomainException.ThrowIf(string.IsNullOrWhiteSpace(request.Description), "Descreva a cobranca.");
+        DomainException.ThrowIf(string.IsNullOrWhiteSpace(request.Description), "Descreva a cobrança.");
 
         Unit unit = await db.Units
             .FirstOrDefaultAsync(u => u.Id == request.UnitId, cancellationToken)
-            ?? throw new KeyNotFoundException("Unidade nao encontrada.");
+            ?? throw new KeyNotFoundException("Unidade não encontrada.");
 
         Guid? payerId = await FindBillingResponsibleAsync(unit.Id, cancellationToken);
         Condominium condominium = await LoadCondominiumAsync(cancellationToken);
@@ -502,11 +506,11 @@ public sealed class BillingService(IApplicationDbContext db, IClock clock)
         CancellationToken cancellationToken = default)
     {
         Charge charge = await db.Charges.FirstOrDefaultAsync(c => c.Id == chargeId, cancellationToken)
-            ?? throw new KeyNotFoundException("Cobranca nao encontrada.");
+            ?? throw new KeyNotFoundException("Cobrança não encontrada.");
 
         DomainException.ThrowIf(
             charge.PaidAmount > 0,
-            "Cobranca com pagamento registrado nao pode ser cancelada. Estorne o pagamento antes.");
+            "Cobrança com pagamento registrado não pode ser cancelada. Estorne o pagamento antes.");
 
         charge.Status = ChargeStatus.Cancelled;
         await db.SaveChangesAsync(cancellationToken);
@@ -558,6 +562,72 @@ public sealed class BillingService(IApplicationDbContext db, IClock clock)
             })
             .OrderByDescending(u => u.OutstandingAmount)
             .ToList();
+    }
+
+    /// <summary>Monta o modelo do boleto de uma cobranca, para gerar o PDF.</summary>
+    public async Task<ChargeDocument> BuildDocumentAsync(
+        Guid chargeId,
+        CancellationToken cancellationToken = default)
+    {
+        Charge charge = await LoadChargeGraph().FirstOrDefaultAsync(c => c.Id == chargeId, cancellationToken)
+            ?? throw new KeyNotFoundException("Cobrança não encontrada.");
+
+        return await BuildDocumentAsync(charge, cancellationToken);
+    }
+
+    /// <summary>Mesmo modelo, acessado pelo link publico do e-mail.</summary>
+    public async Task<ChargeDocument> BuildDocumentByTokenAsync(
+        string token,
+        CancellationToken cancellationToken = default)
+    {
+        DomainException.ThrowIf(string.IsNullOrWhiteSpace(token), "Link inválido.");
+
+        Charge charge = await LoadChargeGraph()
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.PublicToken == token, cancellationToken)
+            ?? throw new KeyNotFoundException("Cobrança não encontrada ou link expirado.");
+
+        return await BuildDocumentAsync(charge, cancellationToken);
+    }
+
+    private async Task<ChargeDocument> BuildDocumentAsync(Charge charge, CancellationToken cancellationToken)
+    {
+        Condominium condominium = await db.Condominiums
+            .AsNoTracking()
+            .IgnoreQueryFilters()
+            .FirstAsync(c => c.Id == charge.CondominiumId, cancellationToken);
+
+        string? notes = charge.BillingCycleId is { } cycleId
+            ? await db.BillingCycles
+                .IgnoreQueryFilters()
+                .Where(c => c.Id == cycleId)
+                .Select(c => c.Notes)
+                .FirstOrDefaultAsync(cancellationToken)
+            : null;
+
+        ChargeDto dto = ToDto(charge, condominium);
+
+        return new ChargeDocument
+        {
+            CondominiumName = condominium.Name,
+            CondominiumCnpj = condominium.Cnpj,
+            CondominiumAddress = condominium.Address.ToString(),
+            UnitIdentifier = dto.UnitIdentifier,
+            PayerName = dto.PayerName,
+            Competence = dto.Competence,
+            DueDate = dto.DueDate,
+            TotalAmount = dto.TotalAmount,
+            PaidAmount = dto.PaidAmount,
+            LateFee = dto.LateFee,
+            Interest = dto.Interest,
+            TotalDue = dto.Status == ChargeStatus.Paid ? 0m : dto.TotalWithLateCharges,
+            DaysLate = dto.DaysLate,
+            Items = dto.Items,
+            PixPayload = dto.PixPayload,
+            PublicUrl = options.Value.BuildChargeUrl(charge.PublicToken),
+            Notes = notes,
+            IsPaid = dto.Status == ChargeStatus.Paid,
+        };
     }
 
     // --- Apoio ---
@@ -665,7 +735,7 @@ public sealed class BillingService(IApplicationDbContext db, IClock clock)
 
     private async Task<Condominium> LoadCondominiumAsync(CancellationToken cancellationToken)
         => await db.Condominiums.AsNoTracking().FirstOrDefaultAsync(cancellationToken)
-            ?? throw new DomainException("Nenhum condominio ativo no contexto da requisicao.");
+            ?? throw new DomainException("Nenhum condomínio ativo no contexto da requisição.");
 
     private async Task<Guid?> FindAccountIdAsync(string code, CancellationToken cancellationToken)
         => await db.LedgerAccounts

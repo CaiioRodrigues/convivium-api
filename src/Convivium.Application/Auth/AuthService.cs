@@ -63,7 +63,7 @@ public sealed class AuthService(
 
         if (stored is null)
         {
-            throw new AuthenticationFailedException("Sessao invalida.");
+            throw new AuthenticationFailedException("Sessão inválida.");
         }
 
         if (!stored.IsActive(clock.Now))
@@ -76,7 +76,7 @@ public sealed class AuthService(
             }
 
             await db.SaveChangesAsync(cancellationToken);
-            throw new AuthenticationFailedException("Sessao expirada.");
+            throw new AuthenticationFailedException("Sessão expirada.");
         }
 
         Person person = stored.Person;
@@ -104,12 +104,12 @@ public sealed class AuthService(
         CancellationToken cancellationToken = default)
     {
         Person person = await db.People.FirstOrDefaultAsync(p => p.Id == personId, cancellationToken)
-            ?? throw new AuthenticationFailedException("Usuario nao encontrado.");
+            ?? throw new AuthenticationFailedException("Usuário não encontrado.");
 
         var accesses = await LoadAccessesAsync(person, cancellationToken);
 
         CondominiumAccess active = accesses.FirstOrDefault(a => a.Id == condominiumId)
-            ?? throw new DomainException("Voce nao tem acesso a esse condominio.");
+            ?? throw new DomainException("Você não tem acesso a esse condomínio.");
 
         return await IssueAsync(person, accesses, active, clientIp, cancellationToken);
     }

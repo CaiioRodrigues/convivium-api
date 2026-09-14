@@ -15,12 +15,12 @@ public readonly record struct Competence : IComparable<Competence>
     {
         if (year is < 2000 or > 2999)
         {
-            throw new DomainException($"Ano de competencia invalido: {year}.");
+            throw new DomainException($"Ano de competência inválido: {year}.");
         }
 
         if (month is < 1 or > 12)
         {
-            throw new DomainException($"Mes de competencia invalido: {month}.");
+            throw new DomainException($"Mês de competência inválido: {month}.");
         }
 
         Year = year;
@@ -51,7 +51,7 @@ public readonly record struct Competence : IComparable<Competence>
         string[] parts = trimmed.Split('/', '-');
         if (parts.Length != 2)
         {
-            throw new DomainException($"Competencia invalida: '{text}'. Use MM/AAAA ou AAAA-MM.");
+            throw new DomainException($"Competência inválida: '{text}'. Use MM/AAAA ou AAAA-MM.");
         }
 
         int first = int.Parse(parts[0]);

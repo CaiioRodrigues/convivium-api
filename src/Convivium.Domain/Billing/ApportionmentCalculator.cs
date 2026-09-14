@@ -26,8 +26,8 @@ public static class ApportionmentCalculator
         ApportionmentMethod method)
     {
         ArgumentNullException.ThrowIfNull(units);
-        DomainException.ThrowIf(units.Count == 0, "Nao ha unidades ativas para ratear a despesa.");
-        DomainException.ThrowIf(total < 0, "O valor a ratear nao pode ser negativo.");
+        DomainException.ThrowIf(units.Count == 0, "Não há unidades ativas para ratear a despesa.");
+        DomainException.ThrowIf(total < 0, "O valor a ratear não pode ser negativo.");
 
         // Trabalhar em centavos inteiros elimina o erro de arredondamento acumulado.
         long totalCents = (long)Math.Round(total * 100m, MidpointRounding.AwayFromZero);
@@ -84,6 +84,6 @@ public static class ApportionmentCalculator
         ApportionmentMethod.IdealFraction => Math.Max(0m, unit.IdealFraction),
         ApportionmentMethod.Area => Math.Max(0m, unit.AreaM2 ?? 0m),
         ApportionmentMethod.Equal => 1m,
-        _ => throw new DomainException($"Metodo de rateio nao suportado: {method}."),
+        _ => throw new DomainException($"Método de rateio não suportado: {method}."),
     };
 }

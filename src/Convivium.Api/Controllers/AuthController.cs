@@ -74,7 +74,7 @@ public sealed class AuthController(AuthService auth, IApplicationDbContext db) :
 
         if (person is null)
         {
-            return NotFoundProblem("Usuario nao encontrado.");
+            return NotFoundProblem("Usuário não encontrado.");
         }
 
         return Ok(new CurrentUserResponse(

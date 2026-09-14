@@ -183,7 +183,7 @@ public class ConviviumDbContext : DbContext, IApplicationDbContext
                 case EntityState.Added or EntityState.Modified
                     when !Tenant.IsSuperAdmin && entry.Entity.CondominiumId != activeTenant:
                     throw new DomainException(
-                        $"Tentativa de gravar {entry.Entity.GetType().Name} em outro condominio.");
+                        $"Tentativa de gravar {entry.Entity.GetType().Name} em outro condomínio.");
             }
         }
     }

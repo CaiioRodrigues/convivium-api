@@ -53,7 +53,7 @@ public sealed class SupplierService(IApplicationDbContext db)
         if (document is not null)
         {
             bool duplicated = await db.Suppliers.AnyAsync(s => s.Document == document, cancellationToken);
-            DomainException.ThrowIf(duplicated, "Ja existe um fornecedor com esse CNPJ/CPF.");
+            DomainException.ThrowIf(duplicated, "Já existe um fornecedor com esse CNPJ/CPF.");
         }
 
         var supplier = new Supplier
@@ -79,7 +79,7 @@ public sealed class SupplierService(IApplicationDbContext db)
         CancellationToken cancellationToken = default)
     {
         Supplier supplier = await db.Suppliers.FirstOrDefaultAsync(s => s.Id == id, cancellationToken)
-            ?? throw new KeyNotFoundException("Fornecedor nao encontrado.");
+            ?? throw new KeyNotFoundException("Fornecedor não encontrado.");
 
         supplier.Name = request.Name.Trim();
         supplier.Document = OnlyDigits(request.Document);
@@ -104,7 +104,7 @@ public sealed class SupplierService(IApplicationDbContext db)
     public async Task DeactivateAsync(Guid id, CancellationToken cancellationToken = default)
     {
         Supplier supplier = await db.Suppliers.FirstOrDefaultAsync(s => s.Id == id, cancellationToken)
-            ?? throw new KeyNotFoundException("Fornecedor nao encontrado.");
+            ?? throw new KeyNotFoundException("Fornecedor não encontrado.");
 
         supplier.IsActive = false;
         await db.SaveChangesAsync(cancellationToken);

@@ -2,7 +2,9 @@ namespace Convivium.Infrastructure;
 
 using Convivium.Application.Abstractions;
 using Convivium.Application.Auth;
+using Convivium.Application.Billing;
 using Convivium.Infrastructure.Auth;
+using Convivium.Infrastructure.Documents;
 using Convivium.Infrastructure.Persistence;
 using Convivium.Infrastructure.Persistence.Seeding;
 using Convivium.Infrastructure.Services;
@@ -18,7 +20,7 @@ public static class DependencyInjection
     {
         string connectionString = configuration.GetConnectionString("Default")
             ?? throw new InvalidOperationException(
-                "Connection string 'Default' nao configurada.");
+                "Connection string 'Default' não configurada.");
 
         services.AddDbContext<ConviviumDbContext>(options => options
             .UseNpgsql(connectionString, npgsql => npgsql
@@ -29,10 +31,17 @@ public static class DependencyInjection
         services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ConviviumDbContext>());
 
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
+        services.Configure<ConviviumOptions>(configuration.GetSection(ConviviumOptions.SectionName));
+
+        // QuestPDF exige a licenca declarada antes de gerar o primeiro documento.
+        // Community e gratuita para empresas com receita anual abaixo de US$ 1 milhao.
+        QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
         services.AddSingleton<IAccessTokenFactory, JwtAccessTokenFactory>();
+
+        services.AddSingleton<IChargeDocumentRenderer, ChargePdfRenderer>();
 
         services.AddScoped<DemoDataSeeder>();
 

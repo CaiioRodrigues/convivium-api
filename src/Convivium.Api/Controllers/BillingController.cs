@@ -125,6 +125,31 @@ public sealed class BillingController(BillingService billing) : ApiControllerBas
     [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<ChargeDto>> Cancel(Guid id, CancellationToken cancellationToken)
         => Ok(await billing.CancelChargeAsync(id, cancellationToken));
+
+    /// <summary>Boleto em PDF, com QR Code PIX e o detalhamento dos itens.</summary>
+    [HttpGet("{id:guid}/pdf")]
+    [Produces("application/pdf")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPdf(
+        Guid id,
+        [FromServices] IChargeDocumentRenderer renderer,
+        CancellationToken cancellationToken)
+    {
+        ChargeDocument document = await billing.BuildDocumentAsync(id, cancellationToken);
+        return File(renderer.Render(document), "application/pdf", BuildFileName(document));
+    }
+
+    internal static string BuildFileName(ChargeDocument document)
+    {
+        // Barra vira hifen: "08/2026" quebraria o nome do arquivo baixado.
+        string competence = document.Competence.Replace('/', '-');
+        string unit = new(document.UnitIdentifier
+            .Select(c => char.IsAsciiLetterOrDigit(c) ? c : '-')
+            .ToArray());
+
+        return $"boleto-{unit}-{competence}.pdf";
+    }
 }
 
 /// <summary>O que o morador ve das proprias cobrancas.</summary>
@@ -156,4 +181,18 @@ public sealed class PublicChargeController(BillingService billing) : ApiControll
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ChargeDto>> Get(string token, CancellationToken cancellationToken)
         => Ok(await billing.GetByPublicTokenAsync(token, cancellationToken));
+
+    /// <summary>Baixa o boleto em PDF pelo link publico, sem login.</summary>
+    [HttpGet("{token}/pdf")]
+    [Produces("application/pdf")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPdf(
+        string token,
+        [FromServices] IChargeDocumentRenderer renderer,
+        CancellationToken cancellationToken)
+    {
+        ChargeDocument document = await billing.BuildDocumentByTokenAsync(token, cancellationToken);
+        return File(renderer.Render(document), "application/pdf", BillingController.BuildFileName(document));
+    }
 }

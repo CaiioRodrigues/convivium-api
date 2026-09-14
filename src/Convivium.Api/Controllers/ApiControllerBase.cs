@@ -15,5 +15,5 @@ public abstract class ApiControllerBase : ControllerBase
 
     /// <summary>404 com um corpo ProblemDetails coerente com o resto da API.</summary>
     protected ActionResult NotFoundProblem(string message) =>
-        Problem(title: "Recurso nao encontrado", detail: message, statusCode: StatusCodes.Status404NotFound);
+        Problem(title: "Recurso não encontrado", detail: message, statusCode: StatusCodes.Status404NotFound);
 }

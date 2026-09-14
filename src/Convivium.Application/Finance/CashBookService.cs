@@ -55,7 +55,7 @@ public sealed class CashBookService(IApplicationDbContext db, IClock clock)
         string name = request.Name.Trim();
 
         bool duplicated = await db.BankAccounts.AnyAsync(a => a.Name == name, cancellationToken);
-        DomainException.ThrowIf(duplicated, $"Ja existe uma conta chamada '{name}'.");
+        DomainException.ThrowIf(duplicated, $"Já existe uma conta chamada '{name}'.");
 
         var account = new BankAccount
         {
@@ -122,11 +122,11 @@ public sealed class CashBookService(IApplicationDbContext db, IClock clock)
         ArgumentNullException.ThrowIfNull(request);
 
         string code = (request.Code ?? string.Empty).Trim();
-        DomainException.ThrowIf(string.IsNullOrWhiteSpace(code), "Informe o codigo da conta.");
+        DomainException.ThrowIf(string.IsNullOrWhiteSpace(code), "Informe o código da conta.");
         DomainException.ThrowIf(string.IsNullOrWhiteSpace(request.Name), "Informe o nome da conta.");
 
         bool duplicated = await db.LedgerAccounts.AnyAsync(a => a.Code == code, cancellationToken);
-        DomainException.ThrowIf(duplicated, $"A conta {code} ja existe no plano de contas.");
+        DomainException.ThrowIf(duplicated, $"A conta {code} já existe no plano de contas.");
 
         // O pai sai do proprio codigo: "5.2.01" pendura em "5.2".
         Guid? parentId = null;
@@ -195,12 +195,12 @@ public sealed class CashBookService(IApplicationDbContext db, IClock clock)
         DateOnly to,
         CancellationToken cancellationToken = default)
     {
-        DomainException.ThrowIf(to < from, "A data final nao pode ser anterior a inicial.");
+        DomainException.ThrowIf(to < from, "A data final não pode ser anterior à inicial.");
 
         BankAccount account = await db.BankAccounts
             .AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == bankAccountId, cancellationToken)
-            ?? throw new KeyNotFoundException("Conta bancaria nao encontrada.");
+            ?? throw new KeyNotFoundException("Conta bancária não encontrada.");
 
         decimal movementBefore = await db.LedgerEntries
             .Where(e => e.BankAccountId == bankAccountId && e.Date < from)
@@ -227,24 +227,24 @@ public sealed class CashBookService(IApplicationDbContext db, IClock clock)
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        DomainException.ThrowIf(request.Amount <= 0, "O valor do lancamento deve ser maior que zero.");
+        DomainException.ThrowIf(request.Amount <= 0, "O valor do lançamento deve ser maior que zero.");
         DomainException.ThrowIf(
             string.IsNullOrWhiteSpace(request.Description),
-            "Descreva o lancamento.");
+            "Descreva o lançamento.");
 
         bool accountExists = await db.BankAccounts
             .AnyAsync(a => a.Id == request.BankAccountId && a.IsActive, cancellationToken);
-        DomainException.ThrowIf(!accountExists, "Conta bancaria nao encontrada ou inativa.");
+        DomainException.ThrowIf(!accountExists, "Conta bancária não encontrada ou inativa.");
 
         LedgerAccount ledgerAccount = await db.LedgerAccounts
             .FirstOrDefaultAsync(a => a.Id == request.LedgerAccountId, cancellationToken)
-            ?? throw new DomainException("Conta contabil nao encontrada.");
+            ?? throw new DomainException("Conta contábil não encontrada.");
 
         // Contas sinteticas existem so para agrupar: aceitar lancamento nelas
         // faria os totais do grafico contarem o mesmo valor duas vezes.
         DomainException.ThrowIf(
             ledgerAccount.IsGroup,
-            $"A conta {ledgerAccount.Display} e um grupo e nao aceita lancamento direto.");
+            $"A conta {ledgerAccount.Display} é um grupo e não aceita lançamento direto.");
 
         Competence competence = request.Competence is { Length: > 0 } text
             ? Competence.Parse(text)
@@ -296,22 +296,22 @@ public sealed class CashBookService(IApplicationDbContext db, IClock clock)
     {
         LedgerEntry entry = await db.LedgerEntries
             .FirstOrDefaultAsync(e => e.Id == entryId, cancellationToken)
-            ?? throw new KeyNotFoundException("Lancamento nao encontrado.");
+            ?? throw new KeyNotFoundException("Lançamento não encontrado.");
 
         // Um lancamento que nasceu de uma despesa ou de um pagamento nao pode
         // ser apagado sozinho: estornar a origem e o caminho certo, senao a
         // despesa fica "paga" sem nenhum dinheiro tendo saido.
         DomainException.ThrowIf(
             entry.ExpenseId is not null,
-            "Este lancamento pertence a uma despesa. Estorne o pagamento da despesa.");
+            "Este lançamento pertence a uma despesa. Estorne o pagamento da despesa.");
 
         DomainException.ThrowIf(
             entry.PaymentId is not null,
-            "Este lancamento pertence a um pagamento de cobranca. Estorne o pagamento.");
+            "Este lançamento pertence a um pagamento de cobrança. Estorne o pagamento.");
 
         DomainException.ThrowIf(
             entry.ReconciledAt is not null,
-            "Lancamento ja conciliado. Desfaca a conciliacao antes de excluir.");
+            "Lançamento já conciliado. Desfaça a conciliação antes de excluir.");
 
         db.LedgerEntries.Remove(entry);
         await db.SaveChangesAsync(cancellationToken);

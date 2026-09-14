@@ -7,5 +7,5 @@ namespace Convivium.Application.Auth;
 /// A mensagem e sempre generica de proposito: dizer "e-mail nao cadastrado"
 /// deixa um atacante descobrir quais e-mails existem na base.
 /// </remarks>
-public sealed class AuthenticationFailedException(string message = "E-mail ou senha invalidos.")
+public sealed class AuthenticationFailedException(string message = "E-mail ou senha inválidos.")
     : Exception(message);

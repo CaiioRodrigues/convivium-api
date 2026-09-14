@@ -62,7 +62,7 @@ public sealed class ExpenseService(IApplicationDbContext db, IClock clock)
             .Where(e => e.Id == id)
             .Select(ToDto(clock.Today))
             .FirstOrDefaultAsync(cancellationToken)
-            ?? throw new KeyNotFoundException("Despesa nao encontrada.");
+            ?? throw new KeyNotFoundException("Despesa não encontrada.");
 
     public async Task<ExpenseDto> CreateAsync(
         CreateExpenseRequest request,
@@ -78,7 +78,7 @@ public sealed class ExpenseService(IApplicationDbContext db, IClock clock)
         if (request.SupplierId is { } supplierId)
         {
             bool exists = await db.Suppliers.AnyAsync(s => s.Id == supplierId, cancellationToken);
-            DomainException.ThrowIf(!exists, "Fornecedor nao encontrado.");
+            DomainException.ThrowIf(!exists, "Fornecedor não encontrado.");
         }
 
         var expense = new Expense
@@ -111,13 +111,13 @@ public sealed class ExpenseService(IApplicationDbContext db, IClock clock)
         CancellationToken cancellationToken = default)
     {
         Expense expense = await db.Expenses.FirstOrDefaultAsync(e => e.Id == id, cancellationToken)
-            ?? throw new KeyNotFoundException("Despesa nao encontrada.");
+            ?? throw new KeyNotFoundException("Despesa não encontrada.");
 
         // Alterar o valor de uma despesa ja paga deixaria o lancamento de caixa
         // divergente do que a despesa diz. Estorne, corrija e pague de novo.
         DomainException.ThrowIf(
             expense.Status == ExpenseStatus.Paid,
-            "Despesa ja paga. Estorne o pagamento antes de alterar.");
+            "Despesa já paga. Estorne o pagamento antes de alterar.");
 
         LedgerAccount account = await LoadExpenseAccountAsync(request.LedgerAccountId, cancellationToken);
 
@@ -156,14 +156,14 @@ public sealed class ExpenseService(IApplicationDbContext db, IClock clock)
         Expense expense = await db.Expenses
             .Include(e => e.LedgerAccount)
             .FirstOrDefaultAsync(e => e.Id == id, cancellationToken)
-            ?? throw new KeyNotFoundException("Despesa nao encontrada.");
+            ?? throw new KeyNotFoundException("Despesa não encontrada.");
 
-        DomainException.ThrowIf(expense.Status == ExpenseStatus.Paid, "Despesa ja esta paga.");
+        DomainException.ThrowIf(expense.Status == ExpenseStatus.Paid, "Despesa já está paga.");
         DomainException.ThrowIf(expense.Status == ExpenseStatus.Cancelled, "Despesa cancelada.");
 
         bool accountExists = await db.BankAccounts
             .AnyAsync(a => a.Id == request.BankAccountId && a.IsActive, cancellationToken);
-        DomainException.ThrowIf(!accountExists, "Conta bancaria nao encontrada ou inativa.");
+        DomainException.ThrowIf(!accountExists, "Conta bancária não encontrada ou inativa.");
 
         decimal amount = request.Amount ?? expense.Amount;
         DomainException.ThrowIf(amount <= 0, "O valor pago deve ser maior que zero.");
@@ -212,9 +212,9 @@ public sealed class ExpenseService(IApplicationDbContext db, IClock clock)
         CancellationToken cancellationToken = default)
     {
         Expense expense = await db.Expenses.FirstOrDefaultAsync(e => e.Id == id, cancellationToken)
-            ?? throw new KeyNotFoundException("Despesa nao encontrada.");
+            ?? throw new KeyNotFoundException("Despesa não encontrada.");
 
-        DomainException.ThrowIf(expense.Status != ExpenseStatus.Paid, "Esta despesa nao esta paga.");
+        DomainException.ThrowIf(expense.Status != ExpenseStatus.Paid, "Esta despesa não está paga.");
 
         LedgerEntry? entry = await db.LedgerEntries
             .FirstOrDefaultAsync(e => e.ExpenseId == expense.Id, cancellationToken);
@@ -235,11 +235,11 @@ public sealed class ExpenseService(IApplicationDbContext db, IClock clock)
     public async Task<ExpenseDto> CancelAsync(Guid id, CancellationToken cancellationToken = default)
     {
         Expense expense = await db.Expenses.FirstOrDefaultAsync(e => e.Id == id, cancellationToken)
-            ?? throw new KeyNotFoundException("Despesa nao encontrada.");
+            ?? throw new KeyNotFoundException("Despesa não encontrada.");
 
         DomainException.ThrowIf(
             expense.Status == ExpenseStatus.Paid,
-            "Despesa paga nao pode ser cancelada. Estorne o pagamento primeiro.");
+            "Despesa paga não pode ser cancelada. Estorne o pagamento primeiro.");
 
         expense.Status = ExpenseStatus.Cancelled;
         await db.SaveChangesAsync(cancellationToken);
@@ -253,15 +253,15 @@ public sealed class ExpenseService(IApplicationDbContext db, IClock clock)
     {
         LedgerAccount account = await db.LedgerAccounts
             .FirstOrDefaultAsync(a => a.Id == ledgerAccountId, cancellationToken)
-            ?? throw new DomainException("Conta contabil nao encontrada.");
+            ?? throw new DomainException("Conta contábil não encontrada.");
 
         DomainException.ThrowIf(
             account.Nature != AccountNature.Expense,
-            $"A conta {account.Display} e de receita e nao aceita despesa.");
+            $"A conta {account.Display} é de receita e não aceita despesa.");
 
         DomainException.ThrowIf(
             account.IsGroup,
-            $"A conta {account.Display} e um grupo e nao aceita lancamento direto.");
+            $"A conta {account.Display} é um grupo e não aceita lançamento direto.");
 
         return account;
     }

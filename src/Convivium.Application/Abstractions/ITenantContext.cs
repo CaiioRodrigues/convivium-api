@@ -24,8 +24,8 @@ public interface ITenantContext
 
     /// <summary>Condominio ativo, ou erro se a rota exigia um e o token nao trouxe.</summary>
     Guid RequireCondominiumId() =>
-        CondominiumId ?? throw new DomainException("Nenhum condominio ativo no token de acesso.");
+        CondominiumId ?? throw new DomainException("Nenhum condomínio ativo no token de acesso.");
 
     Guid RequirePersonId() =>
-        PersonId ?? throw new DomainException("Requisicao sem usuario autenticado.");
+        PersonId ?? throw new DomainException("Requisição sem usuário autenticado.");
 }
