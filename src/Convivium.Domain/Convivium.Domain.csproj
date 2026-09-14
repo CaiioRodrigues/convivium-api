@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Camada de dominio: entidades e regras de negocio puras.
+       Nao referencia nenhum framework de infraestrutura de proposito. -->
+
+</Project>
