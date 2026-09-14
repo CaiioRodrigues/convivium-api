@@ -7,7 +7,9 @@ using Convivium.Infrastructure.Auth;
 using Convivium.Infrastructure.Documents;
 using Convivium.Infrastructure.Persistence;
 using Convivium.Infrastructure.Persistence.Seeding;
+using Convivium.Application.Utilities;
 using Convivium.Infrastructure.Services;
+using Convivium.Infrastructure.Utilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -42,6 +44,12 @@ public static class DependencyInjection
         services.AddSingleton<IAccessTokenFactory, JwtAccessTokenFactory>();
 
         services.AddSingleton<IChargeDocumentRenderer, ChargePdfRenderer>();
+        services.AddSingleton<IPdfTextExtractor, PdfPigTextExtractor>();
+
+        // A ordem importa: leitores especificos primeiro, o generico por ultimo,
+        // porque o generico aceita qualquer texto e engoliria os demais.
+        services.AddSingleton<IUtilityBillParser, CemigBillParser>();
+        services.AddSingleton<IUtilityBillParser, GenericBillParser>();
 
         services.AddScoped<DemoDataSeeder>();
 
