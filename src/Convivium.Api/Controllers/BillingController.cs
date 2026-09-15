@@ -127,7 +127,7 @@ public sealed class BillingController(BillingService billing) : ApiControllerBas
     public async Task<ActionResult<ChargeDto>> Cancel(Guid id, CancellationToken cancellationToken)
         => Ok(await billing.CancelChargeAsync(id, cancellationToken));
 
-    internal static string BuildFileName(ChargeDocument document)
+    internal static string BuildFileName(ChargeDocument document, string extension = "pdf")
     {
         // Barra vira hifen: "08/2026" quebraria o nome do arquivo baixado.
         string competence = document.Competence.Replace('/', '-');
@@ -135,7 +135,7 @@ public sealed class BillingController(BillingService billing) : ApiControllerBas
             .Select(c => char.IsAsciiLetterOrDigit(c) ? c : '-')
             .ToArray());
 
-        return $"boleto-{unit}-{competence}.pdf";
+        return $"boleto-{unit}-{competence}.{extension}";
     }
 }
 
@@ -181,6 +181,30 @@ public sealed class MyChargesController(BillingService billing) : ApiControllerB
             BillingController.BuildFileName(document));
     }
 
+    /// <summary>Boleto em imagem, para mandar no WhatsApp.</summary>
+    /// <remarks>
+    /// Mesmo desenho e mesma regra de permissão do PDF. Muda só o formato:
+    /// no WhatsApp a imagem aparece aberta na conversa, com o QR Code do PIX
+    /// à vista, enquanto o PDF chega como um cartão que precisa ser tocado.
+    /// </remarks>
+    [HttpGet("/api/cobrancas/{id:guid}/imagem")]
+    [Produces("image/png")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetImage(
+        Guid id,
+        [FromServices] IChargeDocumentRenderer renderer,
+        CancellationToken cancellationToken)
+    {
+        ChargeDocument document = await billing.BuildDocumentAsync(
+            id, RestrictToOwnCharges(), cancellationToken);
+
+        return File(
+            renderer.RenderImage(document),
+            "image/png",
+            BillingController.BuildFileName(document, "png"));
+    }
+
     /// <summary>
     /// Nulo para quem enxerga a prestação de contas inteira; o id da pessoa
     /// para o morador, que só pode ver o que é dele.
@@ -208,6 +232,24 @@ public sealed class PublicChargeController(BillingService billing) : ApiControll
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ChargeDto>> Get(string token, CancellationToken cancellationToken)
         => Ok(await billing.GetByPublicTokenAsync(token, cancellationToken));
+
+    /// <summary>Boleto em imagem pelo link publico, sem login.</summary>
+    [HttpGet("{token}/imagem")]
+    [Produces("image/png")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetImage(
+        string token,
+        [FromServices] IChargeDocumentRenderer renderer,
+        CancellationToken cancellationToken)
+    {
+        ChargeDocument document = await billing.BuildDocumentByTokenAsync(token, cancellationToken);
+
+        return File(
+            renderer.RenderImage(document),
+            "image/png",
+            BillingController.BuildFileName(document, "png"));
+    }
 
     /// <summary>Baixa o boleto em PDF pelo link publico, sem login.</summary>
     [HttpGet("{token}/pdf")]

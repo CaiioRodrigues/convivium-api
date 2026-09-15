@@ -7,7 +7,7 @@ using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 
 /// <summary>
-/// Desenha o boleto de cobranca em PDF.
+/// Desenha o boleto de cobranca: o mesmo layout sai em PDF ou em PNG.
 /// </summary>
 /// <remarks>
 /// O documento e montado a partir de um <see cref="ChargeDocument"/> ja
@@ -30,20 +30,59 @@ public sealed class ChargePdfRenderer : IChargeDocumentRenderer
     private const string Danger = "#b91c1c";
     private const string Success = "#15803d";
 
-    public byte[] Render(ChargeDocument document)
+    public byte[] Render(ChargeDocument document) => Compose(document, fitToContent: false).GeneratePdf();
+
+    public byte[] RenderImage(ChargeDocument document)
+    {
+        // 150 DPI: o QR Code do PIX sai com modulo grosso o bastante para ser
+        // lido da tela de um celular por outro celular, que e como boleto
+        // mandado no WhatsApp costuma ser pago. Abaixo disso a camera erra.
+        var settings = new ImageGenerationSettings
+        {
+            ImageFormat = ImageFormat.Png,
+            RasterDpi = 150,
+        };
+
+        // Altura acompanhando o conteudo, e nao A4 fixo: o boleto ocupa um
+        // terco da folha, e numa imagem os dois tercos em branco viram
+        // miniatura ilegivel na conversa. So a primeira pagina — mandar um
+        // album no lugar de um boleto confunde mais do que ajuda.
+        return Compose(document, fitToContent: true).GenerateImages(settings).First();
+    }
+
+    /// <summary>
+    /// Monta o documento. Em <paramref name="fitToContent"/> a pagina cresce
+    /// junto com o conteudo, em vez de ocupar uma A4 inteira.
+    /// </summary>
+    private static Document Compose(ChargeDocument document, bool fitToContent)
     {
         ArgumentNullException.ThrowIfNull(document);
 
         return Document.Create(container => container.Page(page =>
         {
-            page.Size(PageSizes.A4);
+            if (fitToContent)
+            {
+                page.ContinuousSize(PageSizes.A4.Width);
+            }
+            else
+            {
+                page.Size(PageSizes.A4);
+            }
+
             page.Margin(1.6f, Unit.Centimetre);
             page.DefaultTextStyle(text => text.FontSize(10).FontColor(Ink).FontFamily(BodyFont));
 
             page.Header().Element(header => ComposeHeader(header, document));
             page.Content().Element(content => ComposeContent(content, document));
-            page.Footer().Element(footer => ComposeFooter(footer, document));
-        })).GeneratePdf();
+
+            // O rodape traz "pagina X de Y" e a altura da folha, que nao
+            // existem numa pagina continua — e a imagem ja vai acompanhada da
+            // mensagem com o mesmo link.
+            if (!fitToContent)
+            {
+                page.Footer().Element(footer => ComposeFooter(footer, document));
+            }
+        }));
     }
 
     private static void ComposeHeader(IContainer container, ChargeDocument document)
