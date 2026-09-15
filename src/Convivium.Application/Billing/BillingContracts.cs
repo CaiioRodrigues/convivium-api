@@ -96,6 +96,8 @@ public sealed record ChargeDto(
     Guid? PayerPersonId,
     string? PayerName,
     string? PayerEmail,
+    /// <summary>Telefone do pagador, para o sindico mandar o boleto no WhatsApp.</summary>
+    string? PayerPhone,
     string? PixPayload,
     string PublicToken,
     int DaysLate,
