@@ -386,6 +386,12 @@ public sealed class PeopleService(
 
         db.EmailMessages.Add(new EmailMessage
         {
+            // Explicito porque EmailMessage nao e ITenantScoped — o CondominiumId
+            // dela e anulavel, para caber mensagem da plataforma — e portanto o
+            // SaveChanges nao carimba sozinho. Sem esta linha o convite ficava
+            // orfao: fora da fila do condominio e saindo com o remetente padrao
+            // em vez do nome do predio.
+            CondominiumId = condominio.Id,
             Kind = EmailKind.Welcome,
             ToAddress = pessoa.Email!,
             ToName = pessoa.Name,

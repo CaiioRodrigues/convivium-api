@@ -123,47 +123,76 @@ public class ConviviumDbContext : DbContext, IApplicationDbContext
     }
 
     /// <summary>
-    /// Aplica o filtro por condominio em toda entidade que implementa
-    /// <see cref="ITenantScoped"/>, para que nenhuma consulta precise lembrar disso.
+    /// Aplica o filtro por condominio em toda entidade que pertence a um,
+    /// para que nenhuma consulta precise lembrar disso.
     /// </summary>
     /// <remarks>
-    /// O proprio <see cref="Condominium"/> entra junto, filtrado pelo Id: ele nao
-    /// tem CondominiumId porque ele <em>e</em> o condominio. Sem isso,
+    /// Tres formas de pertencer, e as tres entram:
+    /// <list type="bullet">
+    /// <item><see cref="ITenantScoped"/>, o caso comum, filtrado por CondominiumId.</item>
+    /// <item>O proprio <see cref="Condominium"/>, filtrado pelo Id: ele nao tem
+    /// CondominiumId porque ele <em>e</em> o condominio. Sem isso,
     /// "db.Condominiums.FirstOrDefaultAsync()" devolvia uma linha qualquer da
     /// tabela — o que passou despercebido enquanto so existia um condominio, e
     /// virou erro de dinheiro assim que passaram a existir varios: a chave PIX
-    /// do boleto sai dai.
+    /// do boleto sai dai.</item>
+    /// <item><see cref="EmailMessage"/>, cujo CondominiumId e anulavel porque
+    /// existem mensagens da plataforma. Ter a coluna sem implementar a interface
+    /// deixava a fila de avisos inteira aberta: qualquer sindico listava, em
+    /// "/api/notificacoes", o assunto e o e-mail dos moradores de todos os
+    /// outros predios — e podia reenvia-los.</item>
+    /// </list>
     /// </remarks>
     private void ApplyTenantFilters(ModelBuilder modelBuilder)
     {
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
         {
-            bool eOProprioCondominio = entity.ClrType == typeof(Condominium);
-
-            if (!eOProprioCondominio && !typeof(ITenantScoped).IsAssignableFrom(entity.ClrType))
+            if (CampoDoFiltro(entity.ClrType) is not { } campo)
             {
                 continue;
             }
 
             var parameter = Expression.Parameter(entity.ClrType, "e");
+            var propriedade = Expression.Property(parameter, campo);
 
-            // e => !_filterByTenant || e.CondominiumId == _tenantId
-            //
             // Os dois campos viram parametros da consulta, entao o modelo compilado
             // e reaproveitado entre requisicoes de condominios diferentes.
-            string campo = eOProprioCondominio
-                ? nameof(Entity.Id)
-                : nameof(ITenantScoped.CondominiumId);
+            Expression ativo = Expression.Field(Expression.Constant(this), nameof(_filterByTenant));
+            Expression alvo = Expression.Field(Expression.Constant(this), nameof(_tenantId));
 
+            // Coluna anulavel exige os dois lados no mesmo tipo. liftToNull: false
+            // mantem o resultado em bool, e nao bool?, para caber no OrElse; em SQL
+            // vira "condominium_id = @alvo", que nunca casa com NULL — ou seja,
+            // mensagem da plataforma nao aparece dentro de condominio nenhum.
+            if (propriedade.Type != alvo.Type)
+            {
+                alvo = Expression.Convert(alvo, propriedade.Type);
+            }
+
+            // e => !_filterByTenant || e.<campo> == _tenantId
             var body = Expression.OrElse(
-                Expression.Not(Expression.Field(Expression.Constant(this), nameof(_filterByTenant))),
-                Expression.Equal(
-                    Expression.Property(parameter, campo),
-                    Expression.Field(Expression.Constant(this), nameof(_tenantId))));
+                Expression.Not(ativo),
+                Expression.Equal(propriedade, alvo, liftToNull: false, method: null));
 
             modelBuilder.Entity(entity.ClrType)
                 .HasQueryFilter(Expression.Lambda(body, parameter));
         }
+    }
+
+    /// <summary>Por qual coluna esta entidade se prende ao condominio, se e que se prende.</summary>
+    private static string? CampoDoFiltro(Type tipo)
+    {
+        if (tipo == typeof(Condominium))
+        {
+            return nameof(Entity.Id);
+        }
+
+        if (typeof(ITenantScoped).IsAssignableFrom(tipo) || tipo == typeof(EmailMessage))
+        {
+            return nameof(ITenantScoped.CondominiumId);
+        }
+
+        return null;
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
