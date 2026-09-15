@@ -78,6 +78,54 @@ public sealed class CashBookService(IApplicationDbContext db, IClock clock)
             account.OpeningBalance, account.OpeningBalance);
     }
 
+    /// <summary>
+    /// Altera a conta, inclusive o saldo de abertura.
+    /// </summary>
+    /// <remarks>
+    /// Nao ha nada a recalcular depois: o saldo atual e sempre a abertura mais
+    /// a soma dos lancamentos, entao corrigir a abertura ja corrige o saldo e
+    /// o extrato na proxima leitura.
+    /// </remarks>
+    public async Task<BankAccountSummary> UpdateBankAccountAsync(
+        Guid id,
+        UpdateBankAccountRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        DomainException.ThrowIf(string.IsNullOrWhiteSpace(request.Name), "Informe o nome da conta.");
+
+        BankAccount account = await db.BankAccounts
+            .FirstOrDefaultAsync(a => a.Id == id, cancellationToken)
+            ?? throw new KeyNotFoundException("Conta nao encontrada.");
+
+        string name = request.Name.Trim();
+
+        bool duplicated = await db.BankAccounts
+            .AnyAsync(a => a.Name == name && a.Id != id, cancellationToken);
+        DomainException.ThrowIf(duplicated, $"Já existe uma conta chamada '{name}'.");
+
+        account.Name = name;
+        account.Kind = request.Kind;
+        account.BankCode = request.BankCode?.Trim();
+        account.Agency = request.Agency?.Trim();
+        account.AccountNumber = request.AccountNumber?.Trim();
+        account.OpeningBalance = request.OpeningBalance;
+        account.OpeningDate = request.OpeningDate ?? account.OpeningDate;
+        account.IsReserveFund = request.IsReserveFund;
+        account.IsActive = request.IsActive;
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        decimal movimentado = await db.LedgerEntries
+            .Where(e => e.BankAccountId == id)
+            .SumAsync(e => e.Direction == EntryDirection.In ? e.Amount : -e.Amount, cancellationToken);
+
+        return new BankAccountSummary(
+            account.Id, account.Name, account.Kind, account.BankCode, account.Agency,
+            account.AccountNumber, account.IsReserveFund, account.IsActive,
+            account.OpeningBalance, account.OpeningBalance + movimentado);
+    }
+
     // --- Plano de contas ---
 
     /// <summary>Plano de contas em arvore, pronto para renderizar no front.</summary>

@@ -17,6 +17,26 @@ public sealed record BankAccountSummary(
     decimal OpeningBalance,
     decimal CurrentBalance);
 
+/// <summary>
+/// Alteracao de uma conta ja cadastrada, inclusive do saldo de abertura.
+/// </summary>
+/// <remarks>
+/// Corrigir o saldo de abertura e uma operacao legitima e comum: quem cadastra
+/// o condominio raramente tem o extrato na mao na primeira tentativa. Como o
+/// saldo atual e sempre abertura + lancamentos, mudar a abertura reposiciona a
+/// conta inteira sem mexer em nenhum lancamento.
+/// </remarks>
+public sealed record UpdateBankAccountRequest(
+    string Name,
+    BankAccountKind Kind,
+    string? BankCode,
+    string? Agency,
+    string? AccountNumber,
+    decimal OpeningBalance,
+    DateOnly? OpeningDate,
+    bool IsReserveFund,
+    bool IsActive);
+
 public sealed record CreateBankAccountRequest(
     string Name,
     BankAccountKind Kind,

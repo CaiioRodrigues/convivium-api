@@ -91,6 +91,18 @@ public sealed class CashBookController(CashBookService cashBook) : ApiController
         return CreatedAtAction(nameof(GetPosition), new { id = account.Id }, account);
     }
 
+    /// <summary>Altera a conta, inclusive o saldo de abertura.</summary>
+    [HttpPut("contas/{id:guid}")]
+    [Authorize(Policy = ConviviumPolicies.Manager)]
+    [ProducesResponseType<BankAccountSummary>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<BankAccountSummary>> UpdateBankAccount(
+        Guid id,
+        [FromBody] UpdateBankAccountRequest request,
+        CancellationToken cancellationToken)
+        => Ok(await cashBook.UpdateBankAccountAsync(id, request, cancellationToken));
+
     // --- Plano de contas ---
 
     /// <summary>Plano de contas em arvore.</summary>
