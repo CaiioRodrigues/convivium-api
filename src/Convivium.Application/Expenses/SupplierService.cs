@@ -48,7 +48,7 @@ public sealed class SupplierService(IApplicationDbContext db)
         ArgumentNullException.ThrowIfNull(request);
         DomainException.ThrowIf(string.IsNullOrWhiteSpace(request.Name), "Informe o nome do fornecedor.");
 
-        string? document = OnlyDigits(request.Document);
+        string? document = ValidatedDocument(request.Document);
 
         if (document is not null)
         {
@@ -81,8 +81,19 @@ public sealed class SupplierService(IApplicationDbContext db)
         Supplier supplier = await db.Suppliers.FirstOrDefaultAsync(s => s.Id == id, cancellationToken)
             ?? throw new KeyNotFoundException("Fornecedor não encontrado.");
 
+        DomainException.ThrowIf(string.IsNullOrWhiteSpace(request.Name), "Informe o nome do fornecedor.");
+
+        string? document = ValidatedDocument(request.Document);
+
+        if (document is not null)
+        {
+            bool duplicated = await db.Suppliers
+                .AnyAsync(s => s.Id != id && s.Document == document, cancellationToken);
+            DomainException.ThrowIf(duplicated, "Já existe um fornecedor com esse CNPJ/CPF.");
+        }
+
         supplier.Name = request.Name.Trim();
-        supplier.Document = OnlyDigits(request.Document);
+        supplier.Document = document;
         supplier.Email = request.Email?.Trim().ToLowerInvariant();
         supplier.Phone = request.Phone?.Trim();
         supplier.Notes = request.Notes?.Trim();
@@ -110,15 +121,27 @@ public sealed class SupplierService(IApplicationDbContext db)
         await db.SaveChangesAsync(cancellationToken);
     }
 
-    /// <summary>CNPJ e CPF sao guardados so com digitos, para a busca nao depender da mascara.</summary>
-    private static string? OnlyDigits(string? value)
+    /// <summary>
+    /// Confere o documento e devolve so os digitos.
+    /// </summary>
+    /// <remarks>
+    /// Fornecedor costuma ser empresa, mas prestador autonomo entra com CPF —
+    /// por isso os dois formatos valem. Guardar sem mascara faz a busca e a
+    /// checagem de duplicata pararem de depender de como foi digitado.
+    /// </remarks>
+    private static string? ValidatedDocument(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value))
+        string? digits = BrazilianDocument.OnlyDigits(value);
+
+        if (digits is null)
         {
             return null;
         }
 
-        string digits = new(value.Where(char.IsAsciiDigit).ToArray());
-        return digits.Length == 0 ? null : digits;
+        DomainException.ThrowIf(
+            !BrazilianDocument.IsValidCpfOrCnpj(digits),
+            "CNPJ ou CPF inválido. Confira os números digitados.");
+
+        return digits;
     }
 }

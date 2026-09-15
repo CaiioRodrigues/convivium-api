@@ -280,11 +280,11 @@ public sealed class DemoDataSeeder(
     [
         new() { CondominiumId = condominiumId, Name = "CEMIG Distribuição S.A.", Document = "06981180000116" },
         new() { CondominiumId = condominiumId, Name = "COPASA MG", Document = "17281106000103" },
-        new() { CondominiumId = condominiumId, Name = "Atlas Elevadores Ltda", Document = "11222333000144" },
-        new() { CondominiumId = condominiumId, Name = "Brilho Serviços de Limpeza ME", Document = "22333444000155" },
-        new() { CondominiumId = condominiumId, Name = "Predial Administradora", Document = "33444555000166" },
-        new() { CondominiumId = condominiumId, Name = "Verde Vivo Jardinagem", Document = "44555666000177" },
-        new() { CondominiumId = condominiumId, Name = "Seguradora Horizonte", Document = "55666777000188" },
+        new() { CondominiumId = condominiumId, Name = "Atlas Elevadores Ltda", Document = "11222333000181" },
+        new() { CondominiumId = condominiumId, Name = "Brilho Serviços de Limpeza ME", Document = "22333444000181" },
+        new() { CondominiumId = condominiumId, Name = "Predial Administradora", Document = "33444555000181" },
+        new() { CondominiumId = condominiumId, Name = "Verde Vivo Jardinagem", Document = "44555666000181" },
+        new() { CondominiumId = condominiumId, Name = "Seguradora Horizonte", Document = "55666777000181" },
     ];
 
     /// <summary>

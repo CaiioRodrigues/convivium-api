@@ -13,6 +13,12 @@ public sealed class PersonConfiguration : IEntityTypeConfiguration<Person>
         builder.Property(p => p.Cpf).HasMaxLength(11);
         builder.Property(p => p.Phone).HasMaxLength(20);
         builder.Property(p => p.PasswordHash).HasMaxLength(100);
+        builder.Property(p => p.InviteTokenHash).HasMaxLength(64);
+
+        // Índice do convite: a rota de definir senha busca por este hash.
+        builder.HasIndex(p => p.InviteTokenHash)
+            .IsUnique()
+            .HasFilter("invite_token_hash IS NOT NULL");
 
         // O e-mail e o login, entao precisa ser unico na plataforma inteira —
         // a mesma pessoa usa uma credencial so em todos os condominios dela.

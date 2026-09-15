@@ -3,13 +3,17 @@ namespace Convivium.Api.Controllers;
 using Convivium.Api.Auth;
 using Convivium.Application.Abstractions;
 using Convivium.Application.Auth;
+using Convivium.Application.People;
 using Convivium.Domain.People;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 /// <summary>Login, renovacao de sessao e troca de condominio ativo.</summary>
-public sealed class AuthController(AuthService auth, IApplicationDbContext db) : ApiControllerBase
+public sealed class AuthController(
+    AuthService auth,
+    PeopleService pessoas,
+    IApplicationDbContext db) : ApiControllerBase
 {
     /// <summary>Autentica por e-mail e senha.</summary>
     [HttpPost("login")]
@@ -60,7 +64,26 @@ public sealed class AuthController(AuthService auth, IApplicationDbContext db) :
         => Ok(await auth.SwitchCondominiumAsync(
             Tenant.RequirePersonId(), condominiumId, ClientIp, cancellationToken));
 
-    /// <summary>Dados da pessoa autenticada e o contexto ativo da sessao.</summary>
+    /// <summary>
+    /// Define a senha a partir do token de convite recebido por e-mail.
+    /// </summary>
+    /// <remarks>
+    /// Rota pública: quem abre o link do convite ainda não tem sessão. A
+    /// autorização é o próprio token, de uso único e validade de 7 dias.
+    /// </remarks>
+    [HttpPost("definir-senha")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> SetPassword(
+        [FromBody] SetPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        await pessoas.SetPasswordAsync(request, cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>Dados da pessoa autenticada e o contexto ativo da sessão.</summary>
     [HttpGet("me")]
     [Authorize]
     [ProducesResponseType<CurrentUserResponse>(StatusCodes.Status200OK)]

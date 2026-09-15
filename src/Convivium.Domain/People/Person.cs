@@ -27,6 +27,24 @@ public class Person : Entity
 
     public DateTimeOffset? LastLoginAt { get; set; }
 
+    /// <summary>
+    /// SHA-256 do token de primeiro acesso. O valor original só existe no link
+    /// enviado por e-mail.
+    /// </summary>
+    /// <remarks>
+    /// É assim que alguém entra no sistema pela primeira vez sem que ninguém
+    /// precise transmitir uma senha: o síndico dispara o convite, a pessoa
+    /// escolhe a própria senha. Mandar senha por e-mail deixaria ela em texto
+    /// puro na caixa de entrada para sempre.
+    /// </remarks>
+    public string? InviteTokenHash { get; set; }
+
+    public DateTimeOffset? InviteTokenExpiresAt { get; set; }
+
+    /// <summary>Convite ainda válido e não usado.</summary>
+    public bool HasPendingInvite(DateTimeOffset now) =>
+        InviteTokenHash is not null && InviteTokenExpiresAt > now;
+
     public bool IsActive { get; set; } = true;
 
     public ICollection<Membership> Memberships { get; set; } = [];
