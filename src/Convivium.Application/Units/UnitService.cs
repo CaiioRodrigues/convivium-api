@@ -312,6 +312,68 @@ public sealed class UnitService(IApplicationDbContext db, IClock clock)
         return new RedistributeResult(ativas.Count, lista.IdealFractionSum, lista.Units);
     }
 
+    /// <summary>
+    /// Ajusta as fracoes ja cadastradas para somarem exatamente 1, mantendo a
+    /// proporcao entre elas.
+    /// </summary>
+    /// <remarks>
+    /// Resolve dois casos que aparecem sempre. O primeiro e a convencao que
+    /// traz as fracoes arredondadas e nao fecha em 1 por alguns decimos. O
+    /// segundo e a digitacao em unidade errada — porcentagem no lugar de
+    /// fracao, ou o contrario — que deixa a soma cem vezes maior ou menor sem
+    /// alterar a proporcao entre as unidades.
+    ///
+    /// Nos dois casos o que cada unidade paga em relacao as outras e o que a
+    /// convencao mandou; falta so a escala. Diferente do recalculo pela area,
+    /// aqui nenhuma proporcao e inventada: as fracoes da convencao mandam, e a
+    /// operacao e recusada se alguma unidade ativa estiver sem fracao.
+    /// </remarks>
+    public async Task<RedistributeResult> NormalizeFractionsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var ativas = await db.Units
+            .Where(u => u.IsActive)
+            .OrderBy(u => u.Identifier)
+            .ToListAsync(cancellationToken);
+
+        DomainException.ThrowIf(ativas.Count == 0, "Não há unidades ativas para ajustar.");
+
+        var semFracao = ativas.Where(u => u.IdealFraction <= 0).ToList();
+
+        DomainException.ThrowIf(
+            semFracao.Count > 0,
+            $"{semFracao.Count} unidade(s) estão sem fração ideal: " +
+            $"{string.Join(", ", semFracao.Take(5).Select(u => u.Identifier))}" +
+            (semFracao.Count > 5 ? "…" : "") +
+            ". Preencha a fração de todas antes de ajustar.");
+
+        decimal somaAtual = ativas.Sum(u => u.IdealFraction);
+        decimal acumulado = 0m;
+
+        // A ultima absorve a diferenca de arredondamento, como no recalculo
+        // pela area, para a soma fechar exatamente em 1.
+        for (int i = 0; i < ativas.Count; i++)
+        {
+            if (i == ativas.Count - 1)
+            {
+                ativas[i].IdealFraction = 1m - acumulado;
+                break;
+            }
+
+            decimal fracao = Math.Round(
+                ativas[i].IdealFraction / somaAtual, 8, MidpointRounding.ToZero);
+
+            ativas[i].IdealFraction = fracao;
+            acumulado += fracao;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        UnitListDto lista = await ListAsync(includeInactive: true, cancellationToken);
+
+        return new RedistributeResult(ativas.Count, lista.IdealFractionSum, lista.Units);
+    }
+
     // --- Blocos ---
 
     public async Task<BlockDto> CreateBlockAsync(
