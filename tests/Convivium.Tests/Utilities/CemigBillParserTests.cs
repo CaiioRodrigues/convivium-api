@@ -39,7 +39,7 @@ public class CemigBillParserTests
         LEITURA ANTERIOR    LEITURA ATUAL     CONSUMO kWh
         45.210              46.842            1.632
 
-        84660000023-8  84700000000-4  20260915004-2  38476000000-1
+        83690000023-0  84763004567-6  89020260915-6  00000000000-0
         """;
 
     [Fact]
@@ -201,6 +201,136 @@ public class CemigBillParserTests
             """;
 
         _parser.Parse(conta).ReferenceMonth.ShouldBe(new Competence(ano, mes));
+    }
+
+    /// <summary>
+    /// A conta atual da CEMIG (NF3e), em que <b>nenhum cabecalho de coluna
+    /// sobrevive a extracao</b>: o PDF entrega os valores sem nunca dizer
+    /// "Referente a", "Vencimento", "Total a Pagar" nem "Leitura Anterior".
+    /// </summary>
+    /// <remarks>
+    /// Estrutura copiada de uma conta de verdade; nome, endereco, unidade
+    /// consumidora e codigo de barras sao ficticios, porque a conta original
+    /// esta no nome de uma pessoa fisica.
+    /// </remarks>
+    private const string ContaNf3eSemRotulos = """
+        DOCUMENTO AUXILIAR DA NOTA FISCAL DE ENERGIA ELÉTRICA ELETRÔNICA
+        CEMIG DISTRIBUIÇÃO S.A. CNPJ 06.981.180/0001-16 / INSC. ESTADUAL 062.322136.0087.
+        AV. BARBACENA, 1200 - 17° ANDAR - ALA 1 - BAIRRO SANTO AGOSTINHO
+
+        CONDOMINIO RESIDENCIAL CONVIVIUM
+        RUA DOS TIMBIRAS, 1420 - LOURDES
+        30140-061 BELO HORIZONTE, MG
+
+        3.004.567.890-12
+
+        SET/2026                     17/10/2026                        266,06
+        NOTA FISCAL Nº 429049775 - SÉRIE 000
+        Data de emissão:14/09/2026
+
+        Residencial                    Residencial                    Convencional B1
+
+        Bifásico                                      13/08     14/09     32     12/10
+        Energia kWh          PPB212308067          9.494          9.695          1          201
+        Energia Elétrica            kWh     201     1,17263918     235,69     7,92     235,69
+        Contrib Ilum Publica Municipal                                          30,37
+        TOTAL                                                                  266,06
+        Bandeira Amarela - Já Incluído no valor a pagar                           4,80
+
+        008152383678          3.004.567.890-12          17/10/2026     R$266,06
+        Setembro/2026
+        83610000002-2   66063004567-3   89020260915-6   00000000000-0
+        """;
+
+    [Fact]
+    public void Le_a_conta_em_que_nenhum_rotulo_sobrevive_a_extracao()
+    {
+        UtilityBillReading reading = _parser.Parse(ContaNf3eSemRotulos);
+
+        reading.Amount.ShouldBe(266.06m);
+        reading.DueDate.ShouldBe(new DateOnly(2026, 10, 17));
+        reading.ReferenceMonth.ShouldBe(new Competence(2026, 9));
+        reading.InstallationCode.ShouldBe("300456789012");
+        reading.ConsumptionKwh.ShouldBe(201m);
+        reading.Warnings.ShouldBeEmpty();
+    }
+
+    /// <summary>
+    /// Regressao de dinheiro: "Bandeira Amarela - ja incluido no valor a pagar
+    /// 4,80" casava com o rotulo "VALOR A PAGAR", e a conta de R$ 266,06 era
+    /// lancada como R$ 4,80 — sem aviso, porque do ponto de vista do leitor o
+    /// rotulo tinha casado.
+    /// </summary>
+    [Fact]
+    public void Nao_confunde_a_bandeira_tarifaria_com_o_total_da_conta()
+    {
+        UtilityBillReading reading = _parser.Parse(ContaNf3eSemRotulos);
+
+        reading.Amount.ShouldNotBe(4.80m, "isso e o acrescimo da bandeira, nao o total");
+        reading.Amount.ShouldBe(266.06m);
+    }
+
+    /// <summary>
+    /// Regressao: o codigo do medidor ("PPB212308067") tem digitos colados em
+    /// letras, e eles entravam na leitura das colunas como se fossem numeros —
+    /// o consumo saia da constante de multiplicacao, valendo 1 kWh.
+    /// </summary>
+    [Fact]
+    public void Ignora_os_digitos_colados_no_codigo_do_medidor()
+    {
+        UtilityBillReading reading = _parser.Parse(ContaNf3eSemRotulos);
+
+        reading.ConsumptionKwh.ShouldBe(201m);
+        reading.ConsumptionKwh.ShouldNotBe(1m, "isso e a constante de multiplicacao");
+    }
+
+    [Fact]
+    public void Nao_toma_a_classe_tarifaria_por_nome_do_cliente()
+    {
+        string? nome = _parser.Parse(ContaNf3eSemRotulos).CustomerName;
+
+        nome.ShouldNotBeNull();
+        nome!.ShouldContain("CONVIVIUM");
+        nome.ShouldNotContain("CONVENCIONAL", Case.Insensitive);
+    }
+
+    /// <summary>
+    /// O codigo de barras tem digito verificador e posicao fixa; o texto
+    /// depende de o extrator ter ordenado as colunas direito. Discordando, o
+    /// barras vence — e a divergencia precisa aparecer para quem confere.
+    /// </summary>
+    [Fact]
+    public void Prefere_o_codigo_de_barras_quando_o_texto_discorda()
+    {
+        const string textoMenteOBarrasNao = """
+            CEMIG DISTRIBUIÇÃO S.A.
+            TOTAL A PAGAR (R$)
+            9.999,99
+            83610000002-2   66063004567-3   89020260915-6   00000000000-0
+            """;
+
+        UtilityBillReading reading = _parser.Parse(textoMenteOBarrasNao);
+
+        reading.Amount.ShouldBe(266.06m);
+        reading.Warnings.ShouldContain(w => w.Contains("código de barras"));
+    }
+
+    [Fact]
+    public void Ignora_o_campo_de_valor_quando_ele_e_referencia_e_nao_dinheiro()
+    {
+        // Terceira posicao 7 ou 9 significa "valor de referencia", que nao e
+        // dinheiro; ler como se fosse cobraria um numero inventado do morador.
+        const string comValorDeReferencia = """
+            CEMIG DISTRIBUIÇÃO S.A.
+            TOTAL A PAGAR (R$)
+            2.384,76
+            83790000023-0   84763004567-6   89020260915-6   00000000000-0
+            """;
+
+        UtilityBillReading reading = _parser.Parse(comValorDeReferencia);
+
+        reading.Amount.ShouldBe(2384.76m, "cai no texto, ja que o barras nao carrega dinheiro");
+        reading.Warnings.ShouldNotContain(w => w.Contains("código de barras"));
     }
 
     [Fact]

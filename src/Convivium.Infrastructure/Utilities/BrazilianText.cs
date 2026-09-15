@@ -167,6 +167,42 @@ internal static partial class BrazilianText
     }
 
     /// <summary>
+    /// Valor embutido na linha digitavel de arrecadacao, em reais.
+    /// </summary>
+    /// <remarks>
+    /// O codigo de barras e a unica parte da conta que nao depende de como a
+    /// concessionaria desenhou o papel: sao 44 digitos com posicoes fixas
+    /// definidas pela Febraban, e o valor mora nas posicoes 5 a 15, em centavos.
+    /// Num PDF onde nenhum cabecalho de coluna sobrevive a extracao, ele e a
+    /// unica fonte confiavel do total.
+    ///
+    /// A terceira posicao diz o que o campo guarda: 6 e 8 sao valor em dinheiro,
+    /// 7 e 9 sao "valor de referencia", que nao e dinheiro nenhum. Ler um como
+    /// se fosse o outro lancaria no caixa um numero inventado, entao os dois
+    /// ultimos devolvem nulo em vez de chutar.
+    /// </remarks>
+    public static decimal? AmountFromBarcode(string? digitableLine)
+    {
+        string digits = new((digitableLine ?? string.Empty).Where(char.IsAsciiDigit).ToArray());
+
+        // Impressa, a linha vem em quatro blocos de 11 digitos com um
+        // verificador cada; o codigo de barras sao os 44 sem os verificadores.
+        if (digits.Length == 48)
+        {
+            digits = string.Concat(digits[0..11], digits[12..23], digits[24..35], digits[36..47]);
+        }
+
+        if (digits.Length != 44 || digits[0] != '8' || digits[2] is not ('6' or '8'))
+        {
+            return null;
+        }
+
+        return long.TryParse(digits[4..15], out long centavos) && centavos > 0
+            ? centavos / 100m
+            : null;
+    }
+
+    /// <summary>
     /// Procura o valor que vem depois de um rotulo. Aceita quebra de linha
     /// entre os dois, porque o extrator de PDF separa rotulo e valor quando
     /// eles estao em colunas diferentes.
