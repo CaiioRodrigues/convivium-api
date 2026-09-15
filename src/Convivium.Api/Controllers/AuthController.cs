@@ -1,12 +1,14 @@
 namespace Convivium.Api.Controllers;
 
 using Convivium.Api.Auth;
+using Convivium.Api.Common;
 using Convivium.Application.Abstractions;
 using Convivium.Application.Auth;
 using Convivium.Application.People;
 using Convivium.Domain.People;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 /// <summary>Login, renovacao de sessao e troca de condominio ativo.</summary>
@@ -18,6 +20,7 @@ public sealed class AuthController(
     /// <summary>Autentica por e-mail e senha.</summary>
     [HttpPost("login")]
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
     [ProducesResponseType<AuthResult>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<AuthResult>> Login(
@@ -28,6 +31,7 @@ public sealed class AuthController(
     /// <summary>Troca um refresh token valido por um novo par de tokens.</summary>
     [HttpPost("refresh")]
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicies.Session)]
     [ProducesResponseType<AuthResult>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<AuthResult>> Refresh(
@@ -65,14 +69,16 @@ public sealed class AuthController(
             Tenant.RequirePersonId(), condominiumId, ClientIp, cancellationToken));
 
     /// <summary>
-    /// Define a senha a partir do token de convite recebido por e-mail.
+    /// Define a senha a partir do token recebido por e-mail, seja ele de
+    /// convite de primeiro acesso ou de redefinição.
     /// </summary>
     /// <remarks>
-    /// Rota pública: quem abre o link do convite ainda não tem sessão. A
-    /// autorização é o próprio token, de uso único e validade de 7 dias.
+    /// Rota pública: quem abre o link ainda não tem sessão. A autorização é o
+    /// próprio token, de uso único — 7 dias no convite, 1 hora na redefinição.
     /// </remarks>
     [HttpPost("definir-senha")]
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> SetPassword(
@@ -81,6 +87,26 @@ public sealed class AuthController(
     {
         await pessoas.SetPasswordAsync(request, cancellationToken);
         return NoContent();
+    }
+
+    /// <summary>
+    /// Pede um link de redefinição de senha por e-mail.
+    /// </summary>
+    /// <remarks>
+    /// Responde 202 sempre, inclusive para e-mail que não existe. A resposta
+    /// não pode distinguir os dois casos, senão a tela de login vira uma
+    /// consulta de quem está cadastrado no condomínio.
+    /// </remarks>
+    [HttpPost("esqueci-senha")]
+    [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    public async Task<IActionResult> ForgotPassword(
+        [FromBody] ForgotPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        await pessoas.RequestPasswordResetAsync(request, cancellationToken);
+        return Accepted();
     }
 
     /// <summary>Dados da pessoa autenticada e o contexto ativo da sessão.</summary>

@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text;
 using System.Text.Json.Serialization;
 using Convivium.Api.Auth;
@@ -10,6 +11,7 @@ using Convivium.Infrastructure;
 using Convivium.Infrastructure.Auth;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 
@@ -131,11 +133,41 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+builder.Services.AddConviviumRateLimiter();
+
+// --- Proxy reverso ---
+
+// Atras do Caddy/nginx, RemoteIpAddress e o IP do proxy: sem isto o limite de
+// tentativas viraria um balde unico para todo mundo, e o IP gravado na sessao
+// seria sempre o mesmo. Fica desligado por padrao de proposito — aceitar
+// X-Forwarded-For de qualquer origem deixa qualquer um forjar o proprio IP.
+string[] trustedProxies = builder.Configuration.GetSection("App:TrustedProxies").Get<string[]>() ?? [];
+
+if (trustedProxies.Length > 0)
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        options.KnownProxies.Clear();
+        options.KnownIPNetworks.Clear();
+
+        foreach (string proxy in trustedProxies)
+        {
+            options.KnownProxies.Add(IPAddress.Parse(proxy));
+        }
+    });
+}
+
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
 await app.MigrateAndSeedAsync();
+
+if (trustedProxies.Length > 0)
+{
+    app.UseForwardedHeaders();
+}
 
 app.UseExceptionHandler();
 
@@ -146,6 +178,11 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors();
+
+// Antes da autenticacao: tentativa barrada nao deve nem chegar a consultar o
+// banco para conferir a senha.
+app.UseRateLimiter();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
