@@ -14,7 +14,11 @@ public sealed record ApportionmentPreviewLine(
     decimal Total,
     Guid? PayerPersonId,
     string? PayerName,
-    string? PayerEmail);
+    string? PayerEmail,
+    /// <summary>Consumo individual medido, em reais. Nao passa pelo rateio.</summary>
+    decimal Metered = 0m,
+    /// <summary>O mesmo consumo em metros cubicos, para o boleto explicar o valor.</summary>
+    decimal MeteredConsumption = 0m);
 
 /// <summary>
 /// Simulacao do rateio de uma competencia, antes de fechar nada.
@@ -34,7 +38,9 @@ public sealed record ApportionmentPreview(
     int ExpenseCount,
     IReadOnlyList<ExpenseBreakdownLine> Expenses,
     IReadOnlyList<ApportionmentPreviewLine> Units,
-    IReadOnlyList<string> Warnings);
+    IReadOnlyList<string> Warnings,
+    /// <summary>Soma do consumo medido, que entra nos boletos fora do rateio.</summary>
+    decimal MeteredTotal = 0m);
 
 /// <summary>Uma despesa que entra no rateio, agrupada por conta contabil.</summary>
 public sealed record ExpenseBreakdownLine(
