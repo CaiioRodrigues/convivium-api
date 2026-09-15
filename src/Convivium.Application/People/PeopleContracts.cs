@@ -53,6 +53,9 @@ public sealed record InviteResult(
 
 public sealed record SetPasswordRequest(string Token, string Password);
 
+/// <summary>Pedido de redefinicao de senha, feito da tela de login.</summary>
+public sealed record ForgotPasswordRequest(string Email);
+
 public sealed record PersonFilter
 {
     public string? Search { get; init; }

@@ -107,6 +107,46 @@ public sealed class EmailComposer
             $"Ola, {personName}. Seu acesso ao portal do {condominiumName} foi criado.\n\n{accessUrl}");
     }
 
+    /// <summary>
+    /// Link de redefinicao pedido na tela de login.
+    /// </summary>
+    /// <remarks>
+    /// Diferente do convite em dois pontos que importam: diz de onde veio o
+    /// pedido e o que fazer se nao foi a pessoa que pediu. Quem recebe um
+    /// e-mail destes sem ter pedido precisa saber que ninguem entrou na conta
+    /// dele — o link sozinho nao da acesso a nada ate ser usado.
+    /// </remarks>
+    public EmailContent ComposePasswordReset(
+        string condominiumName,
+        string personName,
+        string resetUrl,
+        TimeSpan validity)
+    {
+        string prazo = Validity(validity);
+
+        var body = new StringBuilder();
+
+        body.Append(Paragraph(
+            $"Olá, {Escape(personName)}. Alguém pediu para redefinir a senha de acesso ao " +
+            $"portal do <strong>{Escape(condominiumName)}</strong>. Se foi você, use o botão abaixo " +
+            $"para escolher uma senha nova. O link vale por {prazo} e só pode ser usado uma vez."));
+
+        body.Append(Button("Redefinir minha senha", resetUrl));
+
+        body.Append(Paragraph(
+            "Se você não pediu isso, ignore esta mensagem: sua senha atual continua valendo " +
+            "e ninguém teve acesso à sua conta.",
+            size: 13, color: Muted));
+
+        return new EmailContent(
+            $"Redefinir sua senha - {condominiumName}",
+            Layout(condominiumName, "Redefinir senha", body.ToString()),
+            $"Ola, {personName}. Alguem pediu para redefinir a senha do portal do " +
+            $"{condominiumName}.\n\nSe foi voce, abra o link abaixo. Ele vale por {prazo} " +
+            $"e e de uso unico.\n\n{resetUrl}\n\n" +
+            "Se voce nao pediu isso, ignore esta mensagem: sua senha atual continua valendo.");
+    }
+
     // --- Blocos ---
 
     private static string AmountPanel(ChargeDocument charge, bool settled)
@@ -331,6 +371,16 @@ public sealed class EmailComposer
     }
 
     private static string Money(decimal value) => value.ToString("N2", Brazil);
+
+    /// <summary>"1 hora", "2 horas", "7 dias" — o prazo escrito como se fala.</summary>
+    private static string Validity(TimeSpan validity) => validity switch
+    {
+        { TotalDays: >= 2 } => $"{(int)validity.TotalDays} dias",
+        { TotalDays: >= 1 } => "1 dia",
+        { TotalHours: >= 2 } => $"{(int)validity.TotalHours} horas",
+        { TotalHours: >= 1 } => "1 hora",
+        _ => $"{(int)validity.TotalMinutes} minutos",
+    };
 
     /// <summary>
     /// Escapa o texto antes de entrar no HTML. Nome de morador e observacao do
