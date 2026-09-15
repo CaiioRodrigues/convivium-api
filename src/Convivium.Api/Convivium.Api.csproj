@@ -1,5 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
+  <PropertyGroup>
+    <!--
+      Onde a chave de API do e-mail mora em desenvolvimento. O arquivo fica
+      fora do repositorio, na pasta do usuario, entao segredo nenhum entra no
+      git por descuido. O ID e fixo de proposito: mudando, os segredos ja
+      gravados deixam de ser achados.
+    -->
+    <UserSecretsId>9f3c1d42-7b8e-4a51-9c06-2e5a8d31f7b4</UserSecretsId>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Swashbuckle.AspNetCore" />
