@@ -78,6 +78,49 @@ No plano gratuito do Supabase, projeto parado por cerca de uma semana é
 suspenso e precisa ser reativado no painel. Para um condomínio que movimenta
 pouco fora da época do boleto, isso acontece.
 
+### E-mail chegando de verdade
+
+O Mailpit do compose captura e-mail para você ver na tela, mas não entrega
+nada a ninguém. Para o convite chegar na caixa da pessoa, aponte para um
+serviço de envio. Qualquer um que fale SMTP serve; o Resend é o de configuração
+mais curta:
+
+1. Crie a chave em [resend.com/api-keys](https://resend.com/api-keys).
+2. Guarde a chave fora do repositório, com o gerenciador de segredos do .NET:
+
+```bash
+cd src/Convivium.Api
+dotnet user-secrets set "Email:Host" "smtp.resend.com"
+dotnet user-secrets set "Email:Port" "465"
+dotnet user-secrets set "Email:UseSsl" "true"
+dotnet user-secrets set "Email:Username" "resend"
+dotnet user-secrets set "Email:Password" "re_SUA_CHAVE"
+dotnet user-secrets set "Email:FromAddress" "convivium@seu-dominio.com.br"
+```
+
+No Visual Studio é o mesmo: botão direito no projeto → *Gerenciar Segredos do
+Usuário*. O arquivo fica na pasta do seu usuário, nunca no git — por isso a
+chave não entra aqui nem por descuido.
+
+**Duas coisas que fazem o e-mail sumir sem erro claro:**
+
+- **O remetente precisa ser de um domínio verificado no Resend.** O
+  `nao-responda@convivium.local` padrão é recusado. Antes de verificar um
+  domínio, dá para usar `onboarding@resend.dev` — mas ele só entrega para o
+  e-mail da sua própria conta Resend, e nada mais.
+- **Os endereços do condomínio de demonstração são fictícios** (`@exemplo.local`).
+  Mandar para eles falha. Use o seu e-mail de verdade ao testar.
+
+Para conferir o que aconteceu com cada mensagem:
+
+```sql
+select kind, to_address, status, attempts, last_error from email_messages
+order by created_at desc limit 10;
+```
+
+`Pending` é fila, `Sent` saiu, `Failed` desistiu depois de cinco tentativas —
+e `last_error` diz por quê.
+
 ### Problemas comuns
 
 | O que aparece | O que é |
