@@ -8,6 +8,7 @@ using Convivium.Application.Expenses;
 using Convivium.Application.Finance;
 using Convivium.Application.Notifications;
 using Convivium.Application.People;
+using Convivium.Application.Platform;
 using Convivium.Application.Units;
 using Convivium.Application.Utilities;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,6 +20,7 @@ public static class DependencyInjection
         services.AddScoped<AuthService>();
         services.AddScoped<BillingService>();
         services.AddScoped<CondominiumService>();
+        services.AddScoped<PlatformService>();
         services.AddScoped<PeopleService>();
         services.AddScoped<UnitService>();
         services.AddScoped<CashBookService>();

@@ -59,6 +59,7 @@ public static class DependencyInjection
         services.AddSingleton<IUtilityBillParser, GenericBillParser>();
 
         services.AddScoped<DemoDataSeeder>();
+        services.AddScoped<SuperAdminBootstrapper>();
 
         return services;
     }

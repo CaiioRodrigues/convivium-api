@@ -32,15 +32,39 @@ public sealed class DemoDataSeeder(
 
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
-        if (await db.Condominiums.IgnoreQueryFilters().AnyAsync(cancellationToken))
+        // Confere o condominio de demonstracao pelo nome, e nao se existe algum
+        // condominio: rodando sob demanda pelo hub, quem ja tem o predio de
+        // verdade cadastrado continua podendo gerar o de mentira ao lado.
+        bool jaExiste = await db.Condominiums
+            .IgnoreQueryFilters()
+            .AnyAsync(c => c.Name == DemoName, cancellationToken);
+
+        if (jaExiste)
         {
-            logger.LogInformation("Banco ja populado; seed de demonstracao ignorado.");
+            logger.LogInformation("Condominio de demonstracao ja existe; seed ignorado.");
             return;
         }
 
         logger.LogInformation("Populando condominio de demonstracao...");
 
         Condominium condominium = CreateCondominium();
+
+        // O CNPJ e unico no banco. Se um condominio de verdade ja usa este
+        // numero ficticio, a demonstracao abre mao dele em vez de derrubar a
+        // requisicao: e dado de mentira, e o resto do cenario continua valendo.
+        bool cnpjEmUso = await db.Condominiums
+            .IgnoreQueryFilters()
+            .AnyAsync(c => c.Cnpj == condominium.Cnpj, cancellationToken);
+
+        if (cnpjEmUso)
+        {
+            logger.LogInformation(
+                "CNPJ {Cnpj} ja esta em uso; a demonstracao sera criada sem CNPJ.",
+                condominium.Cnpj);
+
+            condominium.Cnpj = null;
+        }
+
         db.Condominiums.Add(condominium);
 
         var accounts = ChartOfAccountsTemplate.BuildFor(condominium.Id);
@@ -65,9 +89,12 @@ public sealed class DemoDataSeeder(
             condominium.Name, units.Count, people, "sindico@convivium.local", DemoPassword);
     }
 
+    /// <summary>Nome do condominio de demonstracao. E por ele que o seed sabe se ja rodou.</summary>
+    public const string DemoName = "Residencial Convivium";
+
     private static Condominium CreateCondominium() => new()
     {
-        Name = "Residencial Convivium",
+        Name = DemoName,
         LegalName = "Condomínio do Edifício Residencial Convivium",
         Cnpj = "12345678000195",
         Address = new Address

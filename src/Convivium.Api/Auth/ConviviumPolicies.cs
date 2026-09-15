@@ -17,6 +17,16 @@ public static class ConviviumPolicies
 
     /// <summary>Sindico ou administradora: fecha rateio e altera dados do condominio.</summary>
     public const string Manager = "Manager";
+
+    /// <summary>
+    /// Operacao da plataforma: cria condominios e enxerga todos eles.
+    /// </summary>
+    /// <remarks>
+    /// Separada de Manager de proposito. As politicas por papel concedem tudo
+    /// ao super admin, mas a reciproca nao vale: sindico manda no predio dele e
+    /// nao pode criar outros nem ver os dos vizinhos.
+    /// </remarks>
+    public const string SuperAdmin = "SuperAdmin";
 }
 
 /// <summary>Exige um papel igual ou superior ao informado.</summary>

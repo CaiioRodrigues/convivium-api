@@ -1,6 +1,4 @@
-namespace Convivium.Infrastructure.Persistence.Seeding;
-
-using Convivium.Domain.Finance;
+namespace Convivium.Domain.Finance;
 
 /// <summary>Uma linha do plano de contas padrao.</summary>
 public sealed record ChartOfAccountsEntry(

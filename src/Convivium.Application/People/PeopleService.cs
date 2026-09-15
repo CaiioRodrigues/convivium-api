@@ -367,10 +367,10 @@ public sealed class PeopleService(
 
         DomainException.ThrowIf(!pessoa.IsActive, "Esta pessoa está desativada.");
 
-        string token = GenerateToken();
+        string token = InviteToken.Generate();
         DateTimeOffset expiraEm = clock.Now.Add(InviteLifetime);
 
-        pessoa.InviteTokenHash = HashToken(token);
+        pessoa.InviteTokenHash = InviteToken.Hash(token);
         pessoa.InviteTokenExpiresAt = expiraEm;
 
         string link = BuildInviteUrl(token);
@@ -418,7 +418,7 @@ public sealed class PeopleService(
                 || request.Password.Length < MinimumPasswordLength,
             $"A senha precisa ter pelo menos {MinimumPasswordLength} caracteres.");
 
-        string hash = HashToken(request.Token ?? string.Empty);
+        string hash = InviteToken.Hash(request.Token ?? string.Empty);
 
         Person? pessoa = await db.People
             .IgnoreQueryFilters()
@@ -510,12 +510,4 @@ public sealed class PeopleService(
     private static string? Trim(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private static string GenerateToken() =>
-        Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
-            .Replace('+', '-')
-            .Replace('/', '_')
-            .TrimEnd('=');
-
-    private static string HashToken(string token) =>
-        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 }
