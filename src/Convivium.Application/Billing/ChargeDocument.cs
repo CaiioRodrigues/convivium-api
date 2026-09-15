@@ -53,8 +53,20 @@ public sealed record ChargeDocument
     public bool IsOverdue => DaysLate > 0 && !IsPaid;
 }
 
-/// <summary>Gera o boleto de cobranca em PDF.</summary>
+/// <summary>Gera o boleto de cobranca, em PDF ou em imagem.</summary>
 public interface IChargeDocumentRenderer
 {
+    /// <summary>PDF, para arquivar, imprimir e anexar no e-mail.</summary>
     byte[] Render(ChargeDocument document);
+
+    /// <summary>
+    /// PNG da primeira pagina, para mandar no WhatsApp.
+    /// </summary>
+    /// <remarks>
+    /// Existe por causa de como o WhatsApp mostra cada coisa: PDF chega como
+    /// cartao de documento, que o morador precisa tocar para abrir, e imagem
+    /// aparece aberta na conversa. Com o QR Code do PIX visivel sem abrir
+    /// nada, o boleto e pago no mesmo minuto em que chega.
+    /// </remarks>
+    byte[] RenderImage(ChargeDocument document);
 }
