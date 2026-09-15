@@ -9,7 +9,12 @@ public sealed record SupplierDto(
     string? Email,
     string? Phone,
     bool IsActive,
-    int ExpenseCount);
+    int ExpenseCount,
+    /// <summary>
+    /// Vai na listagem porque a tela de edicao parte dela: sem este campo, a
+    /// tela devolveria o fornecedor sem as observacoes e a gravacao as apagaria.
+    /// </summary>
+    string? Notes = null);
 
 public sealed record SaveSupplierRequest(
     string Name,

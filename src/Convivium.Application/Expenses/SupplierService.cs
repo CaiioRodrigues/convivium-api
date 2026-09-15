@@ -37,7 +37,8 @@ public sealed class SupplierService(IApplicationDbContext db)
                 s.Email,
                 s.Phone,
                 s.IsActive,
-                s.Expenses.Count(e => e.Status != ExpenseStatus.Cancelled)))
+                s.Expenses.Count(e => e.Status != ExpenseStatus.Cancelled),
+                s.Notes))
             .ToListAsync(cancellationToken);
     }
 
@@ -70,7 +71,7 @@ public sealed class SupplierService(IApplicationDbContext db)
 
         return new SupplierDto(
             supplier.Id, supplier.Name, supplier.Document,
-            supplier.Email, supplier.Phone, supplier.IsActive, 0);
+            supplier.Email, supplier.Phone, supplier.IsActive, 0, supplier.Notes);
     }
 
     public async Task<SupplierDto> UpdateAsync(
@@ -105,7 +106,7 @@ public sealed class SupplierService(IApplicationDbContext db)
 
         return new SupplierDto(
             supplier.Id, supplier.Name, supplier.Document,
-            supplier.Email, supplier.Phone, supplier.IsActive, expenseCount);
+            supplier.Email, supplier.Phone, supplier.IsActive, expenseCount, supplier.Notes);
     }
 
     /// <summary>

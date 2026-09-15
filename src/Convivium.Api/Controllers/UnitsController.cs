@@ -78,6 +78,18 @@ public sealed class UnitsController(UnitService unidades) : ApiControllerBase
     public async Task<ActionResult<RedistributeResult>> Redistribute(CancellationToken cancellationToken)
         => Ok(await unidades.RedistributeByAreaAsync(cancellationToken));
 
+    /// <summary>
+    /// Ajusta as frações já cadastradas para somarem exatamente 1, mantendo a
+    /// proporção entre elas. Use quando a convenção não fecha por
+    /// arredondamento, ou quando a escala digitada ficou errada.
+    /// </summary>
+    [HttpPost("ajustar-fracoes")]
+    [Authorize(Policy = ConviviumPolicies.Manager)]
+    [ProducesResponseType<RedistributeResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<RedistributeResult>> Normalize(CancellationToken cancellationToken)
+        => Ok(await unidades.NormalizeFractionsAsync(cancellationToken));
+
     // --- Blocos ---
 
     [HttpPost("blocos")]
