@@ -121,7 +121,7 @@ public static class StartupExtensions
             "3D000" =>
                 "O banco nao existe nesse servidor. Suba o do projeto:  docker compose up -d postgres",
 
-            _ => "Confira usuario, senha e banco na connection string \"Postgres\".",
+            _ => "Confira usuario, senha e banco na connection string \"Default\", em appsettings.json.",
         };
 
         return $"""
@@ -133,17 +133,47 @@ public static class StartupExtensions
         """;
     }
 
-    private static string Explicacao(ConviviumDbContext db, Exception erro) =>
-        $"""
+    /// <summary>
+    /// O banco nao respondeu no prazo.
+    /// </summary>
+    /// <remarks>
+    /// "Connection refused" e uma informacao forte e vale separar: significa que
+    /// nada esta escutando naquela porta. Ja descarta senha errada, banco
+    /// inexistente e container no ar porem quebrado — sobra "o container nao
+    /// subiu". Sem essa distincao, as tres linhas de "confira" mandam procurar
+    /// em lugares que o proprio erro ja eliminou.
+    /// </remarks>
+    private static string Explicacao(ConviviumDbContext db, Exception erro)
+    {
+        bool ninguemEscutando = erro is SocketException { SocketErrorCode: SocketError.ConnectionRefused }
+            || erro.InnerException is SocketException { SocketErrorCode: SocketError.ConnectionRefused };
+
+        string confira = ninguemEscutando
+            ? """
+              Nada esta escutando nessa porta — o banco nao chegou a subir.
+
+                docker compose up -d postgres
+
+              Se o comando falhar, o Docker em si nao esta rodando. Se ele disser
+              que a porta ja esta em uso, outro Postgres local a esta segurando:
+              pare o servico ou troque a porta no docker-compose.yml e na
+              connection string "Default", em appsettings.json.
+              """
+            : """
+              Confira:
+                1. O banco esta no ar?   docker compose ps postgres
+                2. A porta 5432 esta livre para ele? (outro Postgres local pode estar segurando)
+                3. A connection string "Default" em appsettings.json aponta para o lugar certo?
+              """;
+
+        return $"""
         Nao foi possivel conectar ao banco em {Endereco(db)} apos {WaitForDatabase.TotalSeconds:0}s.
 
-        Confira:
-          1. O banco esta no ar?   docker compose up -d postgres
-          2. A porta 5432 esta livre para ele? (outro Postgres local pode estar segurando)
-          3. A connection string "Postgres" em appsettings.Development.json aponta para o lugar certo?
+        {confira}
 
         Motivo original: {erro.Message}
         """;
+    }
 
     /// <summary>Servidor e banco da connection string, sem expor a senha.</summary>
     private static string Endereco(ConviviumDbContext db)
