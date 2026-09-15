@@ -14,6 +14,16 @@ public sealed class ConviviumOptions
     /// <summary>Caminho da rota do boleto publico no front.</summary>
     public string PublicChargePath { get; set; } = "/boleto";
 
+    /// <summary>
+    /// E-mail de quem administra a plataforma e pode criar condominios.
+    /// </summary>
+    /// <remarks>
+    /// Conferido a cada subida: se a pessoa nao existir, e criada sem senha e
+    /// com um convite de primeiro acesso cujo link sai no console. Trocar este
+    /// valor promove outra pessoa; nao rebaixa a anterior.
+    /// </remarks>
+    public string? SuperAdminEmail { get; set; }
+
     public string BuildChargeUrl(string publicToken) =>
         $"{PublicBaseUrl.TrimEnd('/')}{PublicChargePath}/{publicToken}";
 }

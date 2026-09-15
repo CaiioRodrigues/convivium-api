@@ -32,6 +32,10 @@ public static class StartupExtensions
         await WaitForDatabaseAsync(db, app.Logger);
         await db.Database.MigrateAsync();
 
+        // Antes do seed: e quem destrava a criacao do primeiro condominio.
+        await services.GetRequiredService<SuperAdminBootstrapper>()
+            .EnsureAsync();
+
         bool seedEnabled = app.Configuration.GetValue("Seed:Enabled", false);
 
         if (app.Environment.IsDevelopment() && seedEnabled)

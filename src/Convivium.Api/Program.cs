@@ -85,7 +85,11 @@ builder.Services.AddAuthorizationBuilder()
     .AddPolicy(ConviviumPolicies.Finance, policy =>
         policy.AddRequirements(new MinimumRoleRequirement(MembershipRole.AssistantManager)))
     .AddPolicy(ConviviumPolicies.Manager, policy =>
-        policy.AddRequirements(new MinimumRoleRequirement(MembershipRole.Manager)));
+        policy.AddRequirements(new MinimumRoleRequirement(MembershipRole.Manager)))
+    // Exige a marca no token, nao um papel: papel e sempre dentro de um
+    // condominio, e criar condominio acontece fora de qualquer um.
+    .AddPolicy(ConviviumPolicies.SuperAdmin, policy =>
+        policy.RequireClaim(ConviviumClaims.SuperAdmin, "1"));
 
 // --- CORS para o convivium-web ---
 

@@ -27,9 +27,20 @@ public class ConviviumDbContext : DbContext, IApplicationDbContext
         // e o condominio ativo nao muda no meio dela.
         _tenantId = tenant.CondominiumId ?? Guid.Empty;
 
-        // Sem condominio no token o filtro casa com Guid.Empty, ou seja, com nada.
-        // Falhar fechado e mais seguro do que devolver a base inteira por engano.
-        _filterByTenant = !tenant.IsSuperAdmin;
+        // Havendo condominio ativo, filtra — inclusive para quem administra a
+        // plataforma. Ser super admin da o direito de entrar em qualquer
+        // condominio, nao o de ver todos misturados: sem isto o painel somaria
+        // o caixa de predios diferentes no mesmo grafico, e o numero errado
+        // nao avisa que esta errado.
+        //
+        // As consultas que realmente perguntam "quais condominios existem"
+        // pedem IgnoreQueryFilters na cara, e continuam enxergando tudo.
+        //
+        // Sem condominio ativo, o filtro casa com Guid.Empty — ou seja, com
+        // nada. Falhar fechado e mais seguro do que devolver a base inteira por
+        // engano. A excecao e o contexto de sistema (seed, despachante de
+        // e-mail), que nao tem condominio e precisa varrer todos.
+        _filterByTenant = tenant.CondominiumId is not null || !tenant.IsSuperAdmin;
     }
 
     protected ITenantContext Tenant { get; }
