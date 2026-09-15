@@ -4,6 +4,7 @@ using Convivium.Domain.Billing;
 using Convivium.Domain.Condominiums;
 using Convivium.Domain.Expenses;
 using Convivium.Domain.Finance;
+using Convivium.Domain.Metering;
 using Convivium.Domain.Notifications;
 using Convivium.Domain.People;
 using Convivium.Domain.Utilities;
@@ -48,6 +49,8 @@ public interface IApplicationDbContext
     DbSet<Payment> Payments { get; }
 
     DbSet<UtilityBill> UtilityBills { get; }
+
+    DbSet<MeterReading> MeterReadings { get; }
 
     DbSet<EmailMessage> EmailMessages { get; }
 

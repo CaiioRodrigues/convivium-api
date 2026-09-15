@@ -1,11 +1,13 @@
 namespace Convivium.Application.Billing;
 
+using System.Globalization;
 using System.Security.Cryptography;
 using Convivium.Application.Abstractions;
 using Convivium.Application.Common;
 using Convivium.Domain.Billing;
 using Convivium.Domain.Common;
 using Convivium.Domain.Condominiums;
+using Convivium.Domain.Metering;
 using Convivium.Domain.Expenses;
 using Convivium.Domain.Finance;
 using Convivium.Domain.Payments;
@@ -101,7 +103,8 @@ public sealed class BillingService(
         decimal reserveFundTotal = Math.Round(
             apportionableTotal * condominium.Billing.ReserveFundRate, 2, MidpointRounding.AwayFromZero);
 
-        var lines = BuildShares(apportionableTotal, reserveFundTotal, units, effectiveMethod);
+        var metered = await LoadMeteredAsync(competence, cancellationToken);
+        var lines = BuildShares(apportionableTotal, reserveFundTotal, units, effectiveMethod, metered);
 
         return new ApportionmentPreview(
             competence.ToString(),
@@ -114,7 +117,8 @@ public sealed class BillingService(
             expenses.Count,
             breakdown,
             lines,
-            warnings);
+            warnings,
+            lines.Sum(l => l.Metered));
     }
 
     public async Task<IReadOnlyList<BillingCycleDto>> ListCyclesAsync(
@@ -195,10 +199,12 @@ public sealed class BillingService(
         decimal reserveFundTotal = Math.Round(
             apportionableTotal * cycle.ReserveFundRate, 2, MidpointRounding.AwayFromZero);
 
-        var lines = BuildShares(apportionableTotal, reserveFundTotal, units, cycle.Method);
+        var metered = await LoadMeteredAsync(cycle.Competence, cancellationToken);
+        var lines = BuildShares(apportionableTotal, reserveFundTotal, units, cycle.Method, metered);
 
         Guid? condoFeeAccount = await FindAccountIdAsync("4.1", cancellationToken);
         Guid? reserveFundAccount = await FindAccountIdAsync("4.2", cancellationToken);
+        Guid? meteredAccount = await FindAccountIdAsync("4.6", cancellationToken);
 
         foreach (ApportionmentPreviewLine line in lines)
         {
@@ -234,6 +240,24 @@ public sealed class BillingService(
                     Amount = line.ReserveFund,
                     LedgerAccountId = reserveFundAccount,
                     Sort = 2,
+                });
+            }
+
+            if (line.Metered > 0)
+            {
+                charge.Items.Add(new ChargeItem
+                {
+                    Kind = ChargeItemKind.Metered,
+                    // O consumo vai na descricao porque e o que o morador
+                    // confere contra o proprio medidor; o valor sozinho nao
+                    // permite discordar.
+                    //
+                    // Cultura explicita: o servidor roda em invariante e "N3"
+                    // sairia "6.033 m3", que um brasileiro le como seis mil.
+                    Description = $"Gás - {line.MeteredConsumption.ToString("N3", PtBr)} m³",
+                    Amount = line.Metered,
+                    LedgerAccountId = meteredAccount,
+                    Sort = 3,
                 });
             }
 
@@ -693,11 +717,20 @@ public sealed class BillingService(
     /// Distribui rateio e fundo de reserva pelas unidades. Cada valor e
     /// distribuido separadamente para que a soma de cada linha feche exata.
     /// </summary>
+    /// <remarks>
+    /// O consumo medido entra por fora do rateio: ele nao e dividido por
+    /// fracao ideal, e somado ao total de cada unidade depois. Por isso chega
+    /// aqui como um dicionario por unidade, e nao como um total a distribuir.
+    /// </remarks>
+    /// <summary>A cultura em que os valores do boleto sao lidos.</summary>
+    private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
+
     private static List<ApportionmentPreviewLine> BuildShares(
         decimal apportionableTotal,
         decimal reserveFundTotal,
         List<BillableUnit> units,
-        ApportionmentMethod method)
+        ApportionmentMethod method,
+        IReadOnlyDictionary<Guid, MeterReading> metered)
     {
         var apportionmentUnits = units
             .Select(u => new ApportionmentUnit(u.UnitId, u.IdealFraction, u.AreaM2))
@@ -719,19 +752,36 @@ public sealed class BillingService(
                 decimal condoFee = condoFees.GetValueOrDefault(u.UnitId);
                 decimal reserveFund = reserveFunds.GetValueOrDefault(u.UnitId);
 
+                MeterReading? leitura = metered.GetValueOrDefault(u.UnitId);
+                decimal consumo = leitura?.Amount ?? 0m;
+
                 return new ApportionmentPreviewLine(
                     u.UnitId,
                     u.Identifier,
                     u.IdealFraction,
                     condoFee,
                     reserveFund,
-                    condoFee + reserveFund,
+                    condoFee + reserveFund + consumo,
                     u.PayerPersonId,
                     u.PayerName,
-                    u.PayerEmail);
+                    u.PayerEmail,
+                    consumo,
+                    leitura?.Consumption ?? 0m);
             })
             .ToList();
     }
+
+    /// <summary>
+    /// As leituras da competencia, por unidade. Fora do rateio de proposito:
+    /// consumo individual nao se divide, se cobra de quem gastou.
+    /// </summary>
+    private async Task<Dictionary<Guid, MeterReading>> LoadMeteredAsync(
+        Competence competence,
+        CancellationToken cancellationToken)
+        => await db.MeterReadings
+            .AsNoTracking()
+            .Where(r => r.Competence == competence)
+            .ToDictionaryAsync(r => r.UnitId, cancellationToken);
 
     private async Task<Condominium> LoadCondominiumAsync(CancellationToken cancellationToken)
         => await db.Condominiums.AsNoTracking().FirstOrDefaultAsync(cancellationToken)

@@ -7,6 +7,7 @@ using Convivium.Domain.Common;
 using Convivium.Domain.Condominiums;
 using Convivium.Domain.Expenses;
 using Convivium.Domain.Finance;
+using Convivium.Domain.Metering;
 using Convivium.Domain.Notifications;
 using Convivium.Domain.People;
 using Convivium.Domain.Utilities;
@@ -78,6 +79,8 @@ public class ConviviumDbContext : DbContext, IApplicationDbContext
     public DbSet<Payment> Payments => Set<Payment>();
 
     public DbSet<UtilityBill> UtilityBills => Set<UtilityBill>();
+
+    public DbSet<MeterReading> MeterReadings => Set<MeterReading>();
 
     public DbSet<EmailMessage> EmailMessages => Set<EmailMessage>();
 

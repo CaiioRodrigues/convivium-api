@@ -27,6 +27,9 @@ public static class ChartOfAccountsTemplate
         new("4.3", "Multas e Juros", AccountNature.Revenue, IsApportionable: false),
         new("4.4", "Aluguel de Áreas Comuns", AccountNature.Revenue, IsApportionable: false),
         new("4.5", "Receitas Financeiras", AccountNature.Revenue, IsApportionable: false),
+        // O que cada unidade paga pelo proprio medidor. Fica separado da
+        // taxa condominial porque nao e rateio: quem gastou paga o que gastou.
+        new("4.6", "Consumo Individual (gás e água)", AccountNature.Revenue, IsApportionable: false),
         new("4.9", "Outras Receitas", AccountNature.Revenue, IsApportionable: false),
 
         // --- Despesas de pessoal ---

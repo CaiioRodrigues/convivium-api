@@ -6,6 +6,7 @@ using Convivium.Application.Condominiums;
 using Convivium.Application.Dashboard;
 using Convivium.Application.Expenses;
 using Convivium.Application.Finance;
+using Convivium.Application.Metering;
 using Convivium.Application.Notifications;
 using Convivium.Application.People;
 using Convivium.Application.Platform;
@@ -27,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<DashboardService>();
         services.AddScoped<ExpenseService>();
         services.AddScoped<SupplierService>();
+        services.AddScoped<MeteringService>();
         services.AddScoped<EmailOutboxService>();
         services.AddScoped<UtilityBillImportService>();
 
