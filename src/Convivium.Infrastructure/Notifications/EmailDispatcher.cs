@@ -121,6 +121,14 @@ public sealed class EmailDispatcher(
 
         await db.SaveChangesAsync(cancellationToken);
 
+        // Nome do condominio de cada mensagem, para assinar o remetente. Uma
+        // consulta para o lote inteiro, e nao uma por mensagem.
+        var condominios = await db.Condominiums
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(c => batch.Select(m => m.CondominiumId).Contains(c.Id))
+            .ToDictionaryAsync(c => c.Id, c => c.Name, cancellationToken);
+
         var sender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
         var composer = scope.ServiceProvider.GetRequiredService<EmailComposer>();
         var renderer = scope.ServiceProvider.GetRequiredService<IChargeDocumentRenderer>();
@@ -134,6 +142,12 @@ public sealed class EmailDispatcher(
             {
                 OutgoingEmail email = await BuildAsync(
                     message, billing, composer, renderer, cancellationToken);
+
+                if (message.CondominiumId is { } condominioId
+                    && condominios.TryGetValue(condominioId, out string? nomeDoCondominio))
+                {
+                    email = email with { FromName = nomeDoCondominio };
+                }
 
                 await sender.SendAsync(email, cancellationToken);
 
