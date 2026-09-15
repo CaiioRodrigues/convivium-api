@@ -126,11 +126,21 @@ public class ConviviumDbContext : DbContext, IApplicationDbContext
     /// Aplica o filtro por condominio em toda entidade que implementa
     /// <see cref="ITenantScoped"/>, para que nenhuma consulta precise lembrar disso.
     /// </summary>
+    /// <remarks>
+    /// O proprio <see cref="Condominium"/> entra junto, filtrado pelo Id: ele nao
+    /// tem CondominiumId porque ele <em>e</em> o condominio. Sem isso,
+    /// "db.Condominiums.FirstOrDefaultAsync()" devolvia uma linha qualquer da
+    /// tabela — o que passou despercebido enquanto so existia um condominio, e
+    /// virou erro de dinheiro assim que passaram a existir varios: a chave PIX
+    /// do boleto sai dai.
+    /// </remarks>
     private void ApplyTenantFilters(ModelBuilder modelBuilder)
     {
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
         {
-            if (!typeof(ITenantScoped).IsAssignableFrom(entity.ClrType))
+            bool eOProprioCondominio = entity.ClrType == typeof(Condominium);
+
+            if (!eOProprioCondominio && !typeof(ITenantScoped).IsAssignableFrom(entity.ClrType))
             {
                 continue;
             }
@@ -141,10 +151,14 @@ public class ConviviumDbContext : DbContext, IApplicationDbContext
             //
             // Os dois campos viram parametros da consulta, entao o modelo compilado
             // e reaproveitado entre requisicoes de condominios diferentes.
+            string campo = eOProprioCondominio
+                ? nameof(Entity.Id)
+                : nameof(ITenantScoped.CondominiumId);
+
             var body = Expression.OrElse(
                 Expression.Not(Expression.Field(Expression.Constant(this), nameof(_filterByTenant))),
                 Expression.Equal(
-                    Expression.Property(parameter, nameof(ITenantScoped.CondominiumId)),
+                    Expression.Property(parameter, campo),
                     Expression.Field(Expression.Constant(this), nameof(_tenantId))));
 
             modelBuilder.Entity(entity.ClrType)
