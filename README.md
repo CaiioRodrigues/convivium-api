@@ -20,6 +20,73 @@ docker compose up -d
 dotnet run --project src/Convivium.Api
 ```
 
+No Windows, o Docker Desktop precisa estar aberto antes do primeiro comando —
+não basta estar instalado.
+
+### Sem Docker
+
+Docker é conveniência, não exigência. Com um PostgreSQL instalado na máquina
+(ou já rodando de outro projeto), crie o usuário e o banco que a connection
+string espera:
+
+```sql
+CREATE ROLE convivium WITH LOGIN PASSWORD 'convivium';
+CREATE DATABASE convivium OWNER convivium;
+```
+
+E rode a API normalmente. Se o seu Postgres usa outra porta, outro usuário ou
+outra senha, aponte para ele sem editar `appsettings.json`:
+
+```bash
+# PowerShell
+$env:ConnectionStrings__Default = "Host=localhost;Port=5433;Database=convivium;Username=postgres;Password=suasenha"
+
+# bash
+export ConnectionStrings__Default="Host=localhost;Port=5433;Database=convivium;Username=postgres;Password=suasenha"
+```
+
+O que se perde sem Docker é só o Mailpit, onde dá para ler os e-mails que a
+API envia. A aplicação não quebra por isso: o envio passa por uma fila com
+repetição e backoff, então as mensagens ficam pendentes em vez de derrubar
+alguma coisa.
+
+Rodar o Postgres do Convivium ao lado de outro banco na mesma máquina é
+tranquilo — cada motor escuta na sua porta e um não enxerga o outro.
+
+### Postgres hospedado (Supabase e afins)
+
+Supabase é PostgreSQL, então serve sem nenhuma mudança no código — é só
+apontar a connection string para lá. Duas armadilhas:
+
+**SSL é obrigatório.** Sem isso a conexão é recusada:
+
+```
+Host=db.SEU-PROJETO.supabase.co;Port=5432;Database=postgres;Username=postgres;Password=SUA-SENHA;SSL Mode=Require
+```
+
+**As migrations precisam da conexão direta, porta 5432.** O *transaction
+pooler* (porta 6543) não mantém estado entre comandos, e o Npgsql usa
+prepared statements — migration por ali falha de um jeito difícil de ler.
+Use a direta para subir a API e deixe o pooler para quando houver muita
+conexão simultânea.
+
+Vale lembrar que aqui cada consulta vai e volta pela internet: o primeiro
+`dotnet run`, que aplica as migrations e popula o seed, demora bem mais do
+que com um banco local.
+
+No plano gratuito do Supabase, projeto parado por cerca de uma semana é
+suspenso e precisa ser reativado no painel. Para um condomínio que movimenta
+pouco fora da época do boleto, isso acontece.
+
+### Problemas comuns
+
+| O que aparece | O que é |
+|---|---|
+| `error during connect: ... docker_engine: The system cannot find the file specified` | O Docker Desktop não está rodando. Abra e espere aparecer "Engine running". |
+| `Nada esta escutando nessa porta — o banco nao chegou a subir` | O container do Postgres não subiu. `docker compose up -d postgres` e depois `docker compose ps postgres`, que precisa mostrar `healthy`. |
+| `port is already allocated` ao subir o compose | Outro Postgres já está na 5432. Pare o serviço, ou troque a porta no `docker-compose.yml` e na connection string. |
+| `respondeu, mas recusou a conexao` com `28P01` | Usuário ou senha não conferem. Se o banco já existia com outra senha: `docker compose down -v && docker compose up -d postgres`. |
+
 | O quê | Onde |
 |---|---|
 | API | http://localhost:5080 |
