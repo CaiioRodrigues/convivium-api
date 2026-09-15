@@ -9,6 +9,16 @@ public sealed record OutgoingEmail
 
     public string? ToName { get; init; }
 
+    /// <summary>
+    /// Nome que aparece como remetente. Nulo usa o nome geral da configuracao.
+    /// </summary>
+    /// <remarks>
+    /// E o nome do condominio, nao o do sistema. O morador reconhece o predio
+    /// dele; "Convivium" nao diz nada para quem nunca ouviu falar do software,
+    /// e num e-mail que cobra dinheiro remetente estranho vira golpe.
+    /// </remarks>
+    public string? FromName { get; init; }
+
     public required string Subject { get; init; }
 
     public required string HtmlBody { get; init; }

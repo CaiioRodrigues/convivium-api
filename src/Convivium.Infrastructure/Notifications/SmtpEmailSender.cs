@@ -16,7 +16,11 @@ public sealed class SmtpEmailSender(IOptions<EmailOptions> options) : IEmailSend
         ArgumentNullException.ThrowIfNull(email);
 
         var message = new MimeMessage();
-        message.From.Add(new MailboxAddress(_options.FromName, _options.FromAddress));
+        // O endereco e sempre o mesmo, porque precisa ser de dominio
+        // verificado no provedor. O nome varia por condominio.
+        message.From.Add(new MailboxAddress(
+            email.FromName ?? _options.FromName,
+            _options.FromAddress));
         message.To.Add(new MailboxAddress(email.ToName ?? email.ToAddress, email.ToAddress));
         message.Subject = email.Subject;
 
