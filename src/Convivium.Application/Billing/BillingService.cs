@@ -589,14 +589,55 @@ public sealed class BillingService(
     }
 
     /// <summary>Monta o modelo do boleto de uma cobranca, para gerar o PDF.</summary>
+    /// <summary>
+    /// Monta o boleto de uma cobrança.
+    /// </summary>
+    /// <param name="chargeId">A cobrança.</param>
+    /// <param name="onlyForPersonId">
+    /// Quando preenchido, só devolve se a cobrança for desta pessoa. É o caso
+    /// do morador baixando o próprio boleto; síndico e conselho passam nulo.
+    /// </param>
+    /// <param name="cancellationToken">Token de cancelamento.</param>
+    /// <remarks>
+    /// Cobrança de outra pessoa responde "não encontrada", e não "sem
+    /// permissão", de propósito: a diferença entre as duas respostas conta a
+    /// quem perguntou que aquele identificador existe.
+    /// </remarks>
     public async Task<ChargeDocument> BuildDocumentAsync(
         Guid chargeId,
+        Guid? onlyForPersonId = null,
         CancellationToken cancellationToken = default)
     {
         Charge charge = await LoadChargeGraph().FirstOrDefaultAsync(c => c.Id == chargeId, cancellationToken)
             ?? throw new KeyNotFoundException("Cobrança não encontrada.");
 
+        if (onlyForPersonId is { } personId
+            && !await IsChargeOfPersonAsync(charge, personId, cancellationToken))
+        {
+            throw new KeyNotFoundException("Cobrança não encontrada.");
+        }
+
         return await BuildDocumentAsync(charge, cancellationToken);
+    }
+
+    /// <summary>
+    /// A cobrança é desta pessoa? Mesma regra da lista "Minhas cobranças":
+    /// vale ser o pagador ou ocupar a unidade hoje.
+    /// </summary>
+    private async Task<bool> IsChargeOfPersonAsync(
+        Charge charge,
+        Guid personId,
+        CancellationToken cancellationToken)
+    {
+        if (charge.PayerPersonId == personId)
+        {
+            return true;
+        }
+
+        return await db.UnitOccupancies
+            .Where(o => o.PersonId == personId && o.UnitId == charge.UnitId)
+            .Where(o => o.EndedOn == null || o.EndedOn >= clock.Today)
+            .AnyAsync(cancellationToken);
     }
 
     /// <summary>Mesmo modelo, acessado pelo link publico do e-mail.</summary>
@@ -871,6 +912,7 @@ public sealed class BillingService(
             charge.PayerPersonId,
             charge.Payer?.Name,
             charge.Payer?.Email,
+            charge.Payer?.Phone,
             pix,
             charge.PublicToken,
             late.DaysLate,

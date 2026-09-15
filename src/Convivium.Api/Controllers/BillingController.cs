@@ -5,6 +5,7 @@ using Convivium.Application.Billing;
 using Convivium.Application.Common;
 using Convivium.Domain.Billing;
 using Convivium.Domain.Common;
+using Convivium.Domain.People;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -126,20 +127,6 @@ public sealed class BillingController(BillingService billing) : ApiControllerBas
     public async Task<ActionResult<ChargeDto>> Cancel(Guid id, CancellationToken cancellationToken)
         => Ok(await billing.CancelChargeAsync(id, cancellationToken));
 
-    /// <summary>Boleto em PDF, com QR Code PIX e o detalhamento dos itens.</summary>
-    [HttpGet("{id:guid}/pdf")]
-    [Produces("application/pdf")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetPdf(
-        Guid id,
-        [FromServices] IChargeDocumentRenderer renderer,
-        CancellationToken cancellationToken)
-    {
-        ChargeDocument document = await billing.BuildDocumentAsync(id, cancellationToken);
-        return File(renderer.Render(document), "application/pdf", BuildFileName(document));
-    }
-
     internal static string BuildFileName(ChargeDocument document)
     {
         // Barra vira hifen: "08/2026" quebraria o nome do arquivo baixado.
@@ -162,6 +149,46 @@ public sealed class MyChargesController(BillingService billing) : ApiControllerB
     [ProducesResponseType<IReadOnlyList<ChargeDto>>(StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<ChargeDto>>> List(CancellationToken cancellationToken)
         => Ok(await billing.GetChargesForPersonAsync(Tenant.RequirePersonId(), cancellationToken));
+
+    /// <summary>Boleto em PDF, com QR Code PIX e o detalhamento dos itens.</summary>
+    /// <remarks>
+    /// <para>
+    /// Mora aqui, e não no <see cref="BillingController"/>, porque baixar o
+    /// próprio boleto é coisa de morador e aquele controlador inteiro exige
+    /// conselho. Os dois <c>[Authorize]</c>, o da classe e o do método, se
+    /// somam em vez de se substituir: não existe abrir uma exceção lá dentro.
+    /// </para>
+    /// <para>
+    /// A rota é absoluta para continuar em <c>/api/cobrancas/{id}/pdf</c>,
+    /// que é o endereço que o convivium-web e os links já publicados usam.
+    /// </para>
+    /// </remarks>
+    [HttpGet("/api/cobrancas/{id:guid}/pdf")]
+    [Produces("application/pdf")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPdf(
+        Guid id,
+        [FromServices] IChargeDocumentRenderer renderer,
+        CancellationToken cancellationToken)
+    {
+        ChargeDocument document = await billing.BuildDocumentAsync(
+            id, RestrictToOwnCharges(), cancellationToken);
+
+        return File(
+            renderer.Render(document),
+            "application/pdf",
+            BillingController.BuildFileName(document));
+    }
+
+    /// <summary>
+    /// Nulo para quem enxerga a prestação de contas inteira; o id da pessoa
+    /// para o morador, que só pode ver o que é dele.
+    /// </summary>
+    private Guid? RestrictToOwnCharges() =>
+        Tenant.IsSuperAdmin || Tenant.Role >= MembershipRole.CouncilMember
+            ? null
+            : Tenant.RequirePersonId();
 }
 
 /// <summary>

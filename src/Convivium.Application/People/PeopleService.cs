@@ -24,6 +24,13 @@ public sealed class PeopleService(
     /// <summary>Validade do convite de primeiro acesso.</summary>
     private static readonly TimeSpan InviteLifetime = TimeSpan.FromDays(7);
 
+    /// <summary>
+    /// Validade do link de redefinição de senha. Bem mais curto que o convite:
+    /// o convite é combinado com a pessoa, a redefinição pode ter sido pedida
+    /// por outro alguém que digitou o e-mail dela.
+    /// </summary>
+    private static readonly TimeSpan PasswordResetLifetime = TimeSpan.FromHours(1);
+
     private const int MinimumPasswordLength = 8;
 
     public async Task<IReadOnlyList<PersonDto>> ListAsync(
@@ -407,6 +414,87 @@ public sealed class PeopleService(
     }
 
     /// <summary>
+    /// Gera o link de redefinição pedido na tela de login e enfileira o e-mail.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Rota anônima, então tudo aqui ignora o filtro de condomínio: quem
+    /// esqueceu a senha não tem sessão e portanto não tem condomínio ativo.
+    /// </para>
+    /// <para>
+    /// Nunca diz se o e-mail existe, nem por retorno nem por demora
+    /// perceptível — e-mail desconhecido sai por aqui em silêncio. Responder
+    /// "não encontrado" transformaria esta tela num verificador de cadastro:
+    /// bastaria alguém enfileirar endereços para descobrir quem mora no
+    /// prédio, e nome de morador com apartamento é dado pessoal.
+    /// </para>
+    /// <para>
+    /// O token mora no mesmo campo do convite, que é de uso único. Pedir
+    /// redefinição derruba um convite pendente, e é o comportamento certo:
+    /// existe um caminho de acesso por pessoa de cada vez.
+    /// </para>
+    /// </remarks>
+    public async Task RequestPasswordResetAsync(
+        ForgotPasswordRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        string? email = NormalizeEmail(request.Email);
+
+        if (email is null)
+        {
+            return;
+        }
+
+        Person? pessoa = await db.People
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(p => p.Email == email, cancellationToken);
+
+        if (pessoa is null || !pessoa.IsActive)
+        {
+            return;
+        }
+
+        string token = InviteToken.Generate();
+        DateTimeOffset expiraEm = clock.Now.Add(PasswordResetLifetime);
+
+        pessoa.InviteTokenHash = InviteToken.Hash(token);
+        pessoa.InviteTokenExpiresAt = expiraEm;
+
+        // O condomínio serve para assinar o remetente e para a mensagem cair
+        // na fila certa. Quem tem vínculo em mais de um recebe pelo primeiro;
+        // super admin sem vínculo nenhum sai com o remetente da plataforma.
+        Condominium? condominio = await db.Memberships
+            .IgnoreQueryFilters()
+            .Where(m => m.PersonId == pessoa.Id)
+            .Where(m => m.EndedOn == null || m.EndedOn >= clock.Today)
+            .OrderBy(m => m.StartedOn)
+            .Select(m => m.Condominium)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        EmailContent conteudo = composer.ComposePasswordReset(
+            condominio?.Name ?? "Convivium",
+            pessoa.Name,
+            BuildInviteUrl(token),
+            PasswordResetLifetime);
+
+        db.EmailMessages.Add(new EmailMessage
+        {
+            CondominiumId = condominio?.Id,
+            Kind = EmailKind.PasswordReset,
+            ToAddress = pessoa.Email!,
+            ToName = pessoa.Name,
+            Subject = conteudo.Subject,
+            HtmlBody = conteudo.HtmlBody,
+            TextBody = conteudo.TextBody,
+            ScheduledFor = clock.Now,
+        });
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// Troca o token do convite pela senha escolhida pela pessoa.
     /// </summary>
     /// <remarks>
@@ -432,7 +520,8 @@ public sealed class PeopleService(
 
         DomainException.ThrowIf(
             pessoa is null || pessoa.InviteTokenExpiresAt <= clock.Now,
-            "Convite inválido ou expirado. Peça um novo ao síndico.");
+            "Link inválido, expirado ou já usado. Peça outro em \"Esqueci minha senha\", "
+            + "na tela de entrada.");
 
         DomainException.ThrowIf(!pessoa.IsActive, "Este acesso está desativado.");
 

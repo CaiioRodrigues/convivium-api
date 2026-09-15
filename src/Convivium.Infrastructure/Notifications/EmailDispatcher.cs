@@ -226,7 +226,10 @@ public sealed class EmailDispatcher(
             };
         }
 
-        ChargeDocument document = await billing.BuildDocumentAsync(chargeId, cancellationToken);
+        // Sem restricao de pessoa: quem monta o e-mail e a fila, que roda
+        // com contexto de sistema e ja sabe para quem esta enviando.
+        ChargeDocument document = await billing.BuildDocumentAsync(
+            chargeId, onlyForPersonId: null, cancellationToken);
         EmailContent content = composer.ComposeCharge(message.Kind, document);
 
         var attachments = new List<EmailAttachment>();
