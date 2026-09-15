@@ -4,6 +4,8 @@ using Convivium.Application.Abstractions;
 using Convivium.Domain.Common;
 using Convivium.Domain.Condominiums;
 using Convivium.Domain.Finance;
+using Convivium.Application.Notifications;
+using Convivium.Domain.Notifications;
 using Convivium.Domain.People;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -20,7 +22,8 @@ using Microsoft.Extensions.Options;
 public sealed class PlatformService(
     IApplicationDbContext db,
     IOptions<ConviviumOptions> options,
-    IClock clock)
+    IClock clock,
+    EmailComposer composer)
 {
     private static readonly TimeSpan InviteLifetime = TimeSpan.FromDays(7);
 
@@ -163,6 +166,27 @@ public sealed class PlatformService(
         {
             pessoa.InviteTokenHash = InviteToken.Hash(token);
             pessoa.InviteTokenExpiresAt = expiraEm;
+
+            // O convite tambem vai por e-mail, e nao so na resposta: quem cria o
+            // condominio nem sempre esta do lado do sindico para repassar o
+            // link. O link continua sendo devolvido porque e a saida quando o
+            // e-mail nao chega — e porque o token so existe neste ponto.
+            EmailContent conteudo = composer.ComposeWelcome(
+                condominio.Name,
+                pessoa.Name,
+                BuildInviteUrl(token));
+
+            db.EmailMessages.Add(new EmailMessage
+            {
+                CondominiumId = condominio.Id,
+                Kind = EmailKind.Welcome,
+                ToAddress = email!,
+                ToName = pessoa.Name,
+                Subject = conteudo.Subject,
+                HtmlBody = conteudo.HtmlBody,
+                TextBody = conteudo.TextBody,
+                ScheduledFor = clock.Now,
+            });
         }
 
         await db.SaveChangesAsync(cancellationToken);
