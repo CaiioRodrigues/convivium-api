@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Um push novo cancela a execucao anterior do mesmo PR: nao adianta esperar o
+# resultado de um commit que ja foi substituido.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build e testes
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          # A versao exata vem do global.json, para o CI usar o mesmo SDK do projeto.
+          global-json-file: global.json
+
+      - name: Restaurar pacotes
+        run: dotnet restore
+
+      - name: Build
+        # Warnings viram erro no CI: o projeto compila limpo hoje e a ideia e
+        # que continue assim, em vez de acumular aviso que ninguem le.
+        run: dotnet build --no-restore --configuration Release -warnaserror
+
+      - name: Testes
+        run: dotnet test --no-build --configuration Release --verbosity normal
+
+      - name: Conferir se ha migration pendente
+        # O modelo do EF e as migrations tem de andar juntos. Mudar uma entidade
+        # e esquecer de gerar a migration so apareceria no boot, ja no deploy.
+        run: |
+          dotnet tool install --global dotnet-ef --version '10.*'
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          dotnet ef migrations has-pending-model-changes \
+            --project src/Convivium.Infrastructure \
+            --startup-project src/Convivium.Api
