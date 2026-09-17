@@ -2,6 +2,7 @@ namespace Convivium.Infrastructure;
 
 using Convivium.Application.Abstractions;
 using Convivium.Application.Auth;
+using Convivium.Application.Accountability;
 using Convivium.Application.Billing;
 using Convivium.Infrastructure.Auth;
 using Convivium.Infrastructure.Notifications;
@@ -47,6 +48,7 @@ public static class DependencyInjection
         services.AddSingleton<IAccessTokenFactory, JwtAccessTokenFactory>();
 
         services.AddSingleton<IChargeDocumentRenderer, ChargePdfRenderer>();
+        services.AddSingleton<IStatementRenderer, StatementPdfRenderer>();
         services.AddSingleton<IPdfTextExtractor, PdfPigTextExtractor>();
         services.AddSingleton<IEmailSender, SmtpEmailSender>();
         services.AddSingleton<EmailComposer>();
