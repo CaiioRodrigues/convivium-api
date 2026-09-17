@@ -1,0 +1,36 @@
+# HTTPS automatico: o Caddy pede o certificado a Let's Encrypt na primeira
+# subida e renova sozinho. Para isso o dominio precisa ja apontar para o IP
+# deste servidor, e as portas 80 e 443 precisam estar abertas.
+
+{
+	email {$EMAIL_DO_CERTIFICADO}
+}
+
+{$DOMINIO} {
+	encode zstd gzip
+
+	# So o portal. A API fica na rede interna, sem rota vinda de fora.
+	reverse_proxy web:3000
+
+	header {
+		# Um ano de HTTPS obrigatorio para quem ja visitou. Nao ligue
+		# "preload" sem certeza: sair da lista leva meses.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+		# O boleto nao e para ser embutido em outro site: e onde o morador
+		# confere valor e chave PIX, e moldura alheia e meio caminho do golpe.
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+
+		# O servidor nao precisa anunciar o que roda.
+		-Server
+	}
+
+	log {
+		output file /data/acesso.log {
+			roll_size 10MB
+			roll_keep 5
+		}
+	}
+}

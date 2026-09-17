@@ -141,6 +141,10 @@ builder.Services.AddConviviumRateLimiter();
 // tentativas viraria um balde unico para todo mundo, e o IP gravado na sessao
 // seria sempre o mesmo. Fica desligado por padrao de proposito — aceitar
 // X-Forwarded-For de qualquer origem deixa qualquer um forjar o proprio IP.
+//
+// Aceita IP solto ("10.0.0.5") ou faixa ("172.18.0.0/16"). A faixa existe por
+// causa do Docker: o container do proxy troca de IP a cada recriacao, entao
+// fixar um endereco quebraria o limite no primeiro "compose up" seguinte.
 string[] trustedProxies = builder.Configuration.GetSection("App:TrustedProxies").Get<string[]>() ?? [];
 
 if (trustedProxies.Length > 0)
@@ -153,8 +157,20 @@ if (trustedProxies.Length > 0)
 
         foreach (string proxy in trustedProxies)
         {
-            options.KnownProxies.Add(IPAddress.Parse(proxy));
+            if (proxy.Contains('/', StringComparison.Ordinal))
+            {
+                options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(proxy));
+            }
+            else
+            {
+                options.KnownProxies.Add(IPAddress.Parse(proxy));
+            }
         }
+
+        // Um proxy so na frente. O padrao do ASP.NET tambem e 1, mas deixar
+        // explicito evita que alguem aumente sem perceber que cada salto a
+        // mais e um cabecalho a mais em que se passa a confiar.
+        options.ForwardLimit = 1;
     });
 }
 

@@ -1,0 +1,133 @@
+# Pilha de producao do Convivium.
+#
+# Quatro servicos e um ajudante. So o Caddy publica porta: banco, API e portal
+# conversam por uma rede interna do Docker, invisivel de fora da maquina.
+#
+# A API nao e publicada de proposito. O portal e um BFF — quem fala com a API
+# e sempre o servidor do Next, nunca o navegador (o cliente da API e
+# server-only e o token vive num cookie httpOnly). Expor a API na internet
+# seria abrir uma porta que ninguem usa.
+#
+# Os dois repositorios precisam estar lado a lado:
+#
+#   ~/convivium-api/deploy/docker-compose.yml   <- este arquivo
+#   ~/convivium-web/
+#
+# Subir:  docker compose --env-file .env up -d --build
+
+name: convivium
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # Ordena nome com acento como gente espera: "Álvaro" antes de "Bruno".
+      LANG: pt_BR.utf8
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [interna]
+
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__Default: "Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      Jwt__SigningKey: ${JWT_SIGNING_KEY}
+      Jwt__Issuer: convivium-api
+      Jwt__Audience: convivium-web
+      App__PublicBaseUrl: https://${DOMINIO}
+      App__SuperAdminEmail: ${SUPER_ADMIN_EMAIL}
+      # Faixa e nao IP: o container do Caddy troca de endereco a cada
+      # recriacao, e um IP fixo quebraria o limite de tentativas no primeiro
+      # "compose up" seguinte.
+      App__TrustedProxies__0: ${REDE_INTERNA}
+      Cors__AllowedOrigins__0: https://${DOMINIO}
+      Email__Host: ${SMTP_HOST}
+      Email__Port: ${SMTP_PORT}
+      Email__UseSsl: ${SMTP_SSL}
+      Email__Username: ${SMTP_USER}
+      Email__Password: ${SMTP_PASSWORD}
+      Email__FromAddress: ${SMTP_FROM}
+      Email__FromName: ${SMTP_FROM_NAME}
+    networks: [interna]
+
+  web:
+    build:
+      context: ../../convivium-web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        # Espera a API responder no /health. A API roda as migrations no boot,
+        # e o portal consultando um banco a meio caminho da migracao daria
+        # erro que ninguem consegue explicar depois.
+        condition: service_healthy
+    environment:
+      API_BASE_URL: http://api:8080
+    networks: [interna]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMINIO: ${DOMINIO}
+      EMAIL_DO_CERTIFICADO: ${EMAIL_DO_CERTIFICADO}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Os certificados vivem aqui. Perder este volume significa pedir
+      # certificado novo a cada subida, e a Let's Encrypt tem limite semanal.
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [interna]
+
+  backup:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      DIAS_PARA_GUARDAR: ${DIAS_DE_BACKUP}
+    volumes:
+      - ./backup/backup.sh:/backup.sh:ro
+      - backups:/backups
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    networks: [interna]
+
+networks:
+  interna:
+    driver: bridge
+    ipam:
+      config:
+        # Fixa a faixa para o App__TrustedProxies poder apontar para ela.
+        - subnet: ${REDE_INTERNA}
+
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:
+  backups:
