@@ -1,0 +1,16 @@
+# Fora da imagem: nada aqui influencia a compilacao, e obj/ com caminhos da
+# maquina de origem chega a quebrar o restore dentro do container.
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/.idea/
+.git/
+.github/
+tests/
+*.md
+!README.md
+docker-compose*.yml
+deploy/
+**/appsettings.Development.json
+**/*.user

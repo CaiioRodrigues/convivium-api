@@ -161,6 +161,25 @@ dotnet test
 
 ---
 
+## Colocar no ar
+
+A pilha de produção está em [`deploy/`](deploy/README.md): banco, API, portal
+e um proxy que resolve o HTTPS sozinho, mais um container que faz backup do
+banco todo dia.
+
+```bash
+cd deploy
+cp .env.example .env   # preencha domínio, senha do banco e chave do JWT
+docker compose --env-file .env up -d --build
+```
+
+Só o proxy fica exposto. Banco e API conversam por uma rede interna, sem rota
+vinda de fora — o portal é um BFF, então quem fala com a API é sempre o
+servidor do Next, nunca o navegador.
+
+O [README do deploy](deploy/README.md) traz os pré-requisitos, o primeiro
+acesso, como restaurar um backup e o que olhar quando algo não sobe.
+
 ## Arquitetura
 
 ```
